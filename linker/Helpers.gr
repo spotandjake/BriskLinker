@@ -1,0 +1,62 @@
+// Imports
+import Bytes from "bytes"
+import List from "list"
+import Utils from "./Utils"
+// Types
+export enum WasmSection {
+  // SectionType(Length, Body)
+  CustomSection(Number, Bytes),
+  TypeSection(Number, Bytes),
+  ImportSection(Number, Bytes),
+  FunctionSection(Number, Bytes),
+  TableSection(Number, Bytes),
+  MemorySection(Number, Bytes),
+  GlobalSection(Number, Bytes),
+  ExportSection(Number, Bytes),
+  StartSection(Number, Bytes),
+  ElementSection(Number, Bytes),
+  CodeSection(Number, Bytes),
+  DataSection(Number, Bytes),
+  DataCountSection(Number, Bytes),
+}
+// SectionDecoder
+export let sectionDecoder = bytes => {
+  let mut sections = []
+  let mut offset = 0
+  while (offset < Bytes.length(bytes)) {
+    // Get Section Id
+    let (sectionID, newOffset) = Utils.getByte(bytes, offset)
+    // Get The Section Length
+    let (sectionLength, newOffset) = Utils.getUnsignedLEB128(bytes, newOffset)
+    // Get The Section Contents
+    let sectionContents = Bytes.slice(newOffset, sectionLength, bytes)
+    let newOffset = newOffset + sectionLength
+    // Match The Section
+    let section = match (sectionID) {
+      0x00 => CustomSection(sectionLength, sectionContents),
+      0x01 => TypeSection(sectionLength, sectionContents),
+      0x02 => ImportSection(sectionLength, sectionContents),
+      0x03 => FunctionSection(sectionLength, sectionContents),
+      0x04 => TableSection(sectionLength, sectionContents),
+      0x05 => MemorySection(sectionLength, sectionContents),
+      0x06 => GlobalSection(sectionLength, sectionContents),
+      0x07 => ExportSection(sectionLength, sectionContents),
+      0x08 => StartSection(sectionLength, sectionContents),
+      0x09 => ElementSection(sectionLength, sectionContents),
+      0x0a => CodeSection(sectionLength, sectionContents),
+      0x0b => DataSection(sectionLength, sectionContents),
+      0x0c => DataCountSection(sectionLength, sectionContents),
+      _ => fail "Invalid Section",
+    }
+    // Add The Section To The List
+    sections = [section, ...sections]
+    offset = newOffset
+  }
+  // Check If There Were Any Errors
+  List.reverse(sections)
+  void
+}
+// Parsers
+export let parseLinkingInfoSection = sectionContent => {
+  void
+}

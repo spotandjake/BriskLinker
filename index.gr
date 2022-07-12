@@ -1,0 +1,38 @@
+// Imports
+import Bytes from "bytes"
+import File from "sys/file"
+import Result from "result"
+import Int64 from "int64"
+import { link } from "./linker/index"
+// Definition For ReadFile
+let readFile = filePath => {
+  // Open The File
+  let fd = File.pathOpen(
+    File.pwdfd,
+    [File.SymlinkFollow],
+    filePath,
+    [File.Exclusive],
+    [File.FdRead, File.FdFilestats],
+    [File.FdRead],
+    []
+  )
+  // Read The File Contents
+  match (fd) {
+    Ok(descriptor) => {
+      let stats = Result.unwrap(File.fdFilestats(descriptor))
+      let (contents, _) = Result.unwrap(
+        File.fdRead(descriptor, Int64.toNumber(stats.size))
+      )
+      Bytes.fromString(contents)
+    },
+    // TODO: Return Err
+    Err(error) => throw error,
+  }
+}
+// Definition For pathAbsolute
+let pathAbsolute = (parentPath, filePath) => {
+  // TODO: Resolve Path
+  filePath
+}
+// Start Linker
+link("./test.wasm", readFile, pathAbsolute)

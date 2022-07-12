@@ -1,0 +1,22 @@
+// Imports
+import { sectionDecoder } from "./Helpers"
+// Types
+export record FileData {
+  importIdentifier: String,
+  wasmBinary: Bytes, // TODO: Change This From Bytes To The List Of Sections It Does Not Make Sense To Parse Them Again Later On
+  mut dependencies: List<String>,
+}
+// Helpers
+// Decodes A Wasm File
+export let decodeFile = wasmFile => {
+  // Split File Into Sections
+  let wasmSections = sectionDecoder(wasmFile)
+  print(wasmSections)
+  // TODO: Find The LinkingInfo Section
+  // TODO: Parse LinkingInfo Section
+  // TODO: Parse Import Section
+  // TODO: Find Relevant Imports
+  // TODO: Build File Map
+  // TODO: Return A Result
+  { importIdentifier: "Brisk$", wasmBinary: wasmFile, dependencies: [] }
+}

@@ -1,0 +1,38 @@
+import Map from "map"
+import Set from "set"
+import List from "list"
+import { decodeFile } from "./DecodeFile"
+// Linker Entry Function
+export let link = (entryFile, fileReader, pathAbsolute) => {
+  // Create Dependency Graph
+  let dependencyGraph = Map.make()
+  let unparsedDependencies = Set.make()
+  // Add Entry File To List
+  Set.add(entryFile, unparsedDependencies)
+  while (true) {
+    // Get The File From The Set
+    // TODO: Implement A Set.pop()
+    if (Set.size(unparsedDependencies) <= 0) {
+      break
+    }
+    let fileName = Set.toArray(unparsedDependencies)[0]
+    Set.remove(fileName, unparsedDependencies)
+    // Read File
+    let fileContents = fileReader(fileName)
+    // Parse File
+    let fileData = decodeFile(fileContents)
+    // Convert Dependency File Paths From Relative To Absolute
+    fileData.dependencies = List.map(filePath =>
+      pathAbsolute(fileName, filePath), fileData.dependencies)
+    // Add File To Dependency Graph
+    Map.set(fileName, fileData, dependencyGraph)
+    // Add The Dependencies To The unparsed Set
+    // TODO: Consider Combining this loop with the one used to convert the path to absolute, (should work as i think records are passed by reference)
+    List.forEach(filePath => {
+      if (!Map.contains(filePath, dependencyGraph))
+        Set.add(filePath, unparsedDependencies)
+    }, fileData.dependencies)
+  }
+  print(Map.toList(dependencyGraph))
+  void
+}
