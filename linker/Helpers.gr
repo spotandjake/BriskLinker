@@ -29,10 +29,10 @@ export record LinkingInfo {
   // TODO: Look into weather the relativity works here
   // Function Reference List<Positions> relative to the code section
   functionReferences: List<Number>,
+  // Type References List<Positions> relative to the code section
+  typeReferences: List<Number>,
   // Global References List<Positions> relative to the code section
   globalReferences: List<Number>,
-  // Type References List<Positions>
-  typeReferences: List<Number>,
 }
 // SectionDecoder
 export let sectionDecoder = bytes => {
@@ -96,15 +96,41 @@ export let getLinkingInfo = (wasmSections: List<WasmSection>) => {
   let linkingInfoSection = List.nth(0, linkingInfoSections)
   match (linkingInfoSection) {
     Some(CustomSection(length, content)) => {
+      // Reference Sections
+      let mut functionReferences = [];
+      let mut typeReferences = [];
+      let mut globalReferences = [];
       // Begin Decoding
       let (importIdentifier, offset) = Utils.getString(content, linkingInfoIdLen)
+      let (functionOffsetGlobal, offset) = Utils.getUnsignedLEB128(content, offset)
+      // Decode Reference Sections
+      let mut (functionReferenceLength, offset) = Utils.getUnsignedLEB128(content, offset)
+      for (let mut i = 0; i < functionReferenceLength; i += 1) {
+        let (reference, newOffset) = Utils.getUnsignedLEB128(content, offset)
+        offset = newOffset
+        // Add The Reference
+        functionReferences = [reference, ...functionReferences]
+      }
+      let mut (typeReferenceLength, offset) = Utils.getUnsignedLEB128(content, offset)
+      for (let mut i = 0; i < typeReferenceLength; i += 1) {
+        let (reference, newOffset) = Utils.getUnsignedLEB128(content, offset)
+        offset = newOffset
+        // Add The Reference
+        typeReferences = [reference, ...typeReferences]
+      }
+      let mut (globalReferenceLength, offset) = Utils.getUnsignedLEB128(content, offset)
+      for (let mut i = 0; i < globalReferenceLength; i += 1) {
+        let (reference, newOffset) = Utils.getUnsignedLEB128(content, offset)
+        offset = newOffset
+        // Add The Reference
+        globalReferences = [reference, ...globalReferences]
+      }
       {
         importIdentifier,
-        // TODO: Get These
-        functionOffsetGlobal: 0,
-        functionReferences: [],
-        globalReferences: [],
-        typeReferences: [],
+        functionOffsetGlobal: functionOffsetGlobal,
+        functionReferences: functionReferences,
+        typeReferences: typeReferences,
+        globalReferences: globalReferences,
       }
     },
     _ => fail "Could Not Find A LinkingInfo Section",

@@ -5,8 +5,11 @@ import Bytes from "bytes"
 // Types
 export record FileData {
   importIdentifier: String,
-  wasmSections: List<WasmSection>, // TODO: Change This From Bytes To The List Of Sections It Does Not Make Sense To Parse Them Again Later On
+  wasmSections: List<WasmSection>,
   wasmBinary: Bytes,
+  functionReferences: List<Number>,
+  typeReferences: List<Number>,
+  globalReferences: List<Number>,
   mut dependencies: List<String>,
 }
 // Helpers
@@ -22,7 +25,7 @@ export let decodeFile = wasmFile => {
   let wasmFile = Bytes.slice(8, Bytes.length(wasmFile) - 8, wasmFile)
   // Split File Into Sections
   let wasmSections = sectionDecoder(wasmFile)
-  // TODO: Parse LinkingInfo Section
+  // Parse LinkingInfo Section
   let linkingInfo = getLinkingInfo(wasmSections);
   print(linkingInfo)
   // TODO: Parse Import Section
@@ -33,6 +36,9 @@ export let decodeFile = wasmFile => {
     importIdentifier: linkingInfo.importIdentifier,
     wasmSections: wasmSections,
     wasmBinary: wasmFile,
+    functionReferences: linkingInfo.functionReferences,
+    typeReferences: linkingInfo.typeReferences,
+    globalReferences: linkingInfo.globalReferences,
     dependencies: []
   }
 }
