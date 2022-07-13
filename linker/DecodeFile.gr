@@ -1,22 +1,38 @@
 // Imports
-import { sectionDecoder } from "./Helpers"
+import { WasmSection, sectionDecoder, getLinkingInfo } from "./Helpers"
+import { getByteSlice } from "./Utils"
+import Bytes from "bytes"
 // Types
 export record FileData {
   importIdentifier: String,
-  wasmBinary: Bytes, // TODO: Change This From Bytes To The List Of Sections It Does Not Make Sense To Parse Them Again Later On
+  wasmSections: List<WasmSection>, // TODO: Change This From Bytes To The List Of Sections It Does Not Make Sense To Parse Them Again Later On
+  wasmBinary: Bytes,
   mut dependencies: List<String>,
 }
 // Helpers
 // Decodes A Wasm File
 export let decodeFile = wasmFile => {
+  // Ensure The File Is Valid
+  if (getByteSlice(wasmFile, 0, 4) != [0x00, 0x61, 0x73, 0x6d]) {
+    fail "File Missing Wasm Magic Number"
+  }
+  if (getByteSlice(wasmFile, 4, 8) != [0x01, 0x00, 0x00, 0x00]) {
+    fail "File Missing Wasm Version"
+  }
+  let wasmFile = Bytes.slice(8, Bytes.length(wasmFile) - 8, wasmFile)
   // Split File Into Sections
   let wasmSections = sectionDecoder(wasmFile)
-  print(wasmSections)
-  // TODO: Find The LinkingInfo Section
   // TODO: Parse LinkingInfo Section
+  let linkingInfo = getLinkingInfo(wasmSections);
+  print(linkingInfo)
   // TODO: Parse Import Section
   // TODO: Find Relevant Imports
   // TODO: Build File Map
   // TODO: Return A Result
-  { importIdentifier: "Brisk$", wasmBinary: wasmFile, dependencies: [] }
+  {
+    importIdentifier: linkingInfo.importIdentifier,
+    wasmSections: wasmSections,
+    wasmBinary: wasmFile,
+    dependencies: []
+  }
 }

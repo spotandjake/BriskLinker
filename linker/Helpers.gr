@@ -1,6 +1,8 @@
 // Imports
 import Bytes from "bytes"
 import List from "list"
+import Option from "option"
+import String from "string"
 import Utils from "./Utils"
 // Types
 export enum WasmSection {
@@ -19,15 +21,28 @@ export enum WasmSection {
   DataSection(Number, Bytes),
   DataCountSection(Number, Bytes),
 }
+export record LinkingInfo {
+  // Language Import Identifier
+  importIdentifier: String,
+  // The file functionOffsetGlobal Index
+  functionOffsetGlobal: Number,
+  // TODO: Look into weather the relativity works here
+  // Function Reference List<Positions> relative to the code section
+  functionReferences: List<Number>,
+  // Global References List<Positions> relative to the code section
+  globalReferences: List<Number>,
+  // Type References List<Positions>
+  typeReferences: List<Number>,
+}
 // SectionDecoder
 export let sectionDecoder = bytes => {
   let mut sections = []
   let mut offset = 0
   while (offset < Bytes.length(bytes)) {
     // Get Section Id
-    let (sectionID, newOffset) = Utils.getByte(bytes, offset)
+    let sectionID = Utils.getByte(bytes, offset)
     // Get The Section Length
-    let (sectionLength, newOffset) = Utils.getUnsignedLEB128(bytes, newOffset)
+    let (sectionLength, newOffset) = Utils.getUnsignedLEB128(bytes, offset + 1)
     // Get The Section Contents
     let sectionContents = Bytes.slice(newOffset, sectionLength, bytes)
     let newOffset = newOffset + sectionLength
@@ -54,9 +69,44 @@ export let sectionDecoder = bytes => {
   }
   // Check If There Were Any Errors
   List.reverse(sections)
-  void
 }
+// Constants
+let linkingInfoId = "LinkingInfo"
+let linkingInfoIdLen = String.length(linkingInfoId) + 1
 // Parsers
-export let parseLinkingInfoSection = sectionContent => {
-  void
+export let getLinkingInfo = (wasmSections: List<WasmSection>) => {
+  // Find The Custom Sections
+  let customSections = List.filter((section) => {
+    match (section) {
+      CustomSection(_, _) => true,
+      _ => false,
+    }
+  }, wasmSections)
+  if (List.length(customSections) <= 0) fail "Could Not Find A LinkingInfo Section"
+  // Look For The Linking Section
+  let linkingInfoSections = List.filter((section) => {
+    match (section) {
+      CustomSection(_, content) => Utils.getString(content, 0) == (linkingInfoId, linkingInfoIdLen),
+      _ => false,
+    }
+  }, wasmSections)
+  if (List.length(linkingInfoSections) <= 0) fail "Could Not Find A LinkingInfo Section"
+  if (List.length(linkingInfoSections) > 1) fail "Found Multiple LinkingInfo Sections"
+  // Decode The First Linking Section
+  let linkingInfoSection = List.nth(0, linkingInfoSections)
+  match (linkingInfoSection) {
+    Some(CustomSection(length, content)) => {
+      // Begin Decoding
+      let (importIdentifier, offset) = Utils.getString(content, linkingInfoIdLen)
+      {
+        importIdentifier,
+        // TODO: Get These
+        functionOffsetGlobal: 0,
+        functionReferences: [],
+        globalReferences: [],
+        typeReferences: [],
+      }
+    },
+    _ => fail "Could Not Find A LinkingInfo Section",
+  }
 }

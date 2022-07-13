@@ -29,7 +29,7 @@ export let getByteSlice = (bytes: Bytes, start: Number, end: Number) => {
     let byte = WasmI32.load8U(bytesOffset, coerceNumberToWasmI32(start + i))
     WasmI32.toGrain(tagSimple(byte)): Number
   })
-  (output, end)
+  output
 }
 
 /**
@@ -45,7 +45,7 @@ export let getByte = (bytes: Bytes, offset: Number) => {
   let ptr = WasmI32.fromGrain(bytes)
   let bytesOffset = WasmI32.add(ptr, 8n)
   let byte = WasmI32.load8U(bytesOffset, coerceNumberToWasmI32(offset))
-  (WasmI32.toGrain(tagSimple(byte)): Number, offset + 1)
+  WasmI32.toGrain(tagSimple(byte)): Number
 }
 
 /**
@@ -61,8 +61,8 @@ export let getUnsignedLEB128 = (bytes: Bytes, offset: Number) => {
   let mut shift = 0
   let mut offset = offset
   while (true) {
-    let (byte, newOffset) = getByte(bytes, offset)
-    offset = newOffset
+    let byte = getByte(bytes, offset)
+    offset += 1
     result = result | (byte & 0x7f) << shift
     if ((0x80 & byte) == 0) break
     shift += 7
