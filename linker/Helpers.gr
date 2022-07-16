@@ -1,32 +1,28 @@
 // Imports
-import Bytes from "bytes"
-import List from "list"
-import Option from "option"
-import String from "string"
-import Utils from "./Utils"
+import Stream from "./Stream"
+import { reverse, init, find } from "list"
 // Types
 export enum WasmSection {
   // SectionType(Length, Body)
-  CustomSection(Number, Bytes),
-  TypeSection(Number, Bytes),
-  ImportSection(Number, Bytes),
-  FunctionSection(Number, Bytes),
-  TableSection(Number, Bytes),
-  MemorySection(Number, Bytes),
-  GlobalSection(Number, Bytes),
-  ExportSection(Number, Bytes),
-  StartSection(Number, Bytes),
-  ElementSection(Number, Bytes),
-  CodeSection(Number, Bytes),
-  DataSection(Number, Bytes),
-  DataCountSection(Number, Bytes),
+  CustomSection(Number, Stream.Stream),
+  TypeSection(Number, Stream.Stream),
+  ImportSection(Number, Stream.Stream),
+  FunctionSection(Number, Stream.Stream),
+  TableSection(Number, Stream.Stream),
+  MemorySection(Number, Stream.Stream),
+  GlobalSection(Number, Stream.Stream),
+  ExportSection(Number, Stream.Stream),
+  StartSection(Number, Stream.Stream),
+  ElementSection(Number, Stream.Stream),
+  CodeSection(Number, Stream.Stream),
+  DataSection(Number, Stream.Stream),
+  DataCountSection(Number, Stream.Stream),
 }
 export record LinkingInfo {
   // Language Import Identifier
   importIdentifier: String,
   // The file functionOffsetGlobal Index
   functionOffsetGlobal: Number,
-  // TODO: Look into weather the relativity works here
   // Function Reference List<Positions> relative to the code section
   functionReferences: List<Number>,
   // Type References List<Positions> relative to the code section
@@ -35,17 +31,15 @@ export record LinkingInfo {
   globalReferences: List<Number>,
 }
 // SectionDecoder
-export let sectionDecoder = bytes => {
+export let sectionDecoder = stream => {
   let mut sections = []
-  let mut offset = 0
-  while (offset < Bytes.length(bytes)) {
+  while (Stream.remainingLength(stream) > 0) {
     // Get Section Id
-    let sectionID = Utils.getByte(bytes, offset)
+    let sectionID = Stream.nextByte(stream)
     // Get The Section Length
-    let (sectionLength, newOffset) = Utils.getUnsignedLEB128(bytes, offset + 1)
+    let sectionLength = Stream.nextUIntLEB128(stream)
     // Get The Section Contents
-    let sectionContents = Bytes.slice(newOffset, sectionLength, bytes)
-    let newOffset = newOffset + sectionLength
+    let sectionContents = Stream.nextStreamSlice(stream, sectionLength)
     // Match The Section
     let section = match (sectionID) {
       0x00 => CustomSection(sectionLength, sectionContents),
@@ -65,74 +59,29 @@ export let sectionDecoder = bytes => {
     }
     // Add The Section To The List
     sections = [section, ...sections]
-    offset = newOffset
   }
   // Check If There Were Any Errors
-  List.reverse(sections)
+  reverse(sections)
 }
-// Constants
-let linkingInfoId = "LinkingInfo"
-let linkingInfoIdLen = String.length(linkingInfoId) + 1
-// Parsers
-export let getLinkingInfo = (wasmSections: List<WasmSection>) => {
-  // Find The Custom Sections
-  let customSections = List.filter((section) => {
-    match (section) {
-      CustomSection(_, _) => true,
-      _ => false,
-    }
-  }, wasmSections)
-  if (List.length(customSections) <= 0) fail "Could Not Find A LinkingInfo Section"
-  // Look For The Linking Section
-  let linkingInfoSections = List.filter((section) => {
-    match (section) {
-      CustomSection(_, content) => Utils.getString(content, 0) == (linkingInfoId, linkingInfoIdLen),
-      _ => false,
-    }
-  }, wasmSections)
-  if (List.length(linkingInfoSections) <= 0) fail "Could Not Find A LinkingInfo Section"
-  if (List.length(linkingInfoSections) > 1) fail "Found Multiple LinkingInfo Sections"
-  // Decode The First Linking Section
-  let linkingInfoSection = List.nth(0, linkingInfoSections)
-  match (linkingInfoSection) {
-    Some(CustomSection(length, content)) => {
-      // Reference Sections
-      let mut functionReferences = [];
-      let mut typeReferences = [];
-      let mut globalReferences = [];
-      // Begin Decoding
-      let (importIdentifier, offset) = Utils.getString(content, linkingInfoIdLen)
-      let (functionOffsetGlobal, offset) = Utils.getUnsignedLEB128(content, offset)
-      // Decode Reference Sections
-      let mut (functionReferenceLength, offset) = Utils.getUnsignedLEB128(content, offset)
-      for (let mut i = 0; i < functionReferenceLength; i += 1) {
-        let (reference, newOffset) = Utils.getUnsignedLEB128(content, offset)
-        offset = newOffset
-        // Add The Reference
-        functionReferences = [reference, ...functionReferences]
-      }
-      let mut (typeReferenceLength, offset) = Utils.getUnsignedLEB128(content, offset)
-      for (let mut i = 0; i < typeReferenceLength; i += 1) {
-        let (reference, newOffset) = Utils.getUnsignedLEB128(content, offset)
-        offset = newOffset
-        // Add The Reference
-        typeReferences = [reference, ...typeReferences]
-      }
-      let mut (globalReferenceLength, offset) = Utils.getUnsignedLEB128(content, offset)
-      for (let mut i = 0; i < globalReferenceLength; i += 1) {
-        let (reference, newOffset) = Utils.getUnsignedLEB128(content, offset)
-        offset = newOffset
-        // Add The Reference
-        globalReferences = [reference, ...globalReferences]
-      }
+let getRefs = (s) => init(Stream.nextUIntLEB128(s), (_) => Stream.nextUIntLEB128(s))
+export let getLinkingInfo = (sections) => {
+  // Find The LinkingInfo Section
+  let linkingInfo = find((section) => match (section) {
+    CustomSection(_, stream) when Stream.nextString(stream) == "LinkingInfo" => true,
+    _ => false,
+  }, sections)
+  // If We Did Not Find The Section Fail
+  match (linkingInfo) {
+    Some(CustomSection(_, stream)) => {
+      // Package
       {
-        importIdentifier,
-        functionOffsetGlobal: functionOffsetGlobal,
-        functionReferences: functionReferences,
-        typeReferences: typeReferences,
-        globalReferences: globalReferences,
+        importIdentifier: Stream.nextString(stream),
+        functionOffsetGlobal: Stream.nextUIntLEB128(stream),
+        functionReferences: getRefs(stream),
+        typeReferences: getRefs(stream),
+        globalReferences: getRefs(stream),
       }
     },
-    _ => fail "Could Not Find A LinkingInfo Section",
+    _ => fail "Linking Info Section Not Found"
   }
 }

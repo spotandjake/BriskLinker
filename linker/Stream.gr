@@ -1,0 +1,80 @@
+import WasmI32 from "runtime/unsafe/wasmi32"
+import { coerceNumberToWasmI32 } from "runtime/numbers"
+import Bytes from "bytes"
+import List from "list"
+// Helpers
+@unsafe
+let tagSimple = x => WasmI32.xor(WasmI32.shl(x, 1n), 1n)
+// Library For Interacting With Streams Of Data
+export record Stream {
+  data: Bytes,
+  mut position: Number,
+}
+// Functions
+// TODO: I want to use the name from
+export let fromBytes = (data) => {
+  // Create A New Stream
+  {
+    data,
+    position: 0,
+  }
+}
+// Get The Next Element
+@unsafe
+export let nextByte = (stream) => {
+  // Get The Value
+  let ptr = WasmI32.fromGrain(stream.data)
+  let bytesOffset = WasmI32.add(ptr, 8n)
+  let byte = WasmI32.load8U(bytesOffset, coerceNumberToWasmI32(stream.position))
+  // Increment The Position
+  stream.position += 1
+  // Return The Value
+  WasmI32.toGrain(tagSimple(byte)): Number
+}
+export let nextUIntLEB128 = (stream) => {
+  let mut result = 0
+  let mut shift = 0
+  while (true) {
+    let byte = nextByte(stream)
+    result = result | (byte & 0x7f) << shift
+    if ((0x80 & byte) == 0) break
+    shift += 7
+  }
+  // Return Result
+  result
+}
+// export let nextIntLEB128 = (stream) => {
+//   void
+// }
+export let nextString = (stream) => {
+  // Get String Length
+  let length = nextUIntLEB128(stream)
+  // Get The String
+  let str = Bytes.slice(stream.position, length, stream.data)
+  let str = Bytes.toString(str)
+  // Increment The Position
+  stream.position += length
+  // Return The String
+  str
+}
+// Get The Next Slice
+export let nextSliceBytes = (stream, length) => {
+  let result = Bytes.slice(stream.position, length, stream.data)
+  stream.position += length
+  result
+}
+export let nextStreamSlice = (stream, length) => {
+  let result = nextSliceBytes(stream, length)
+  fromBytes(result)
+}
+export let nextSliceList = (stream, length) => {
+  List.init(length, (index) => nextByte(stream))
+}
+// Length
+export let length = stream => Bytes.length(stream.data)
+export let remainingLength = stream => length(stream) - stream.position
+// Reset
+export let resetPointer = (stream) => {
+  stream.position = 0
+  stream
+}

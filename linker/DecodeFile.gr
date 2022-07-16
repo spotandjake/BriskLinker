@@ -1,7 +1,6 @@
 // Imports
 import { WasmSection, sectionDecoder, getLinkingInfo } from "./Helpers"
-import { getByteSlice } from "./Utils"
-import Bytes from "bytes"
+import Stream from "./Stream"
 // Types
 export record FileData {
   importIdentifier: String,
@@ -12,30 +11,31 @@ export record FileData {
   globalReferences: List<Number>,
   mut dependencies: List<String>,
 }
-// Helpers
 // Decodes A Wasm File
-export let decodeFile = wasmFile => {
+export let decodeFile = wasmBinary => {
+  // Create Our Stream
+  let stream = Stream.fromBytes(wasmBinary)
   // Ensure The File Is Valid
-  if (getByteSlice(wasmFile, 0, 4) != [0x00, 0x61, 0x73, 0x6d]) {
+  if (Stream.nextSliceList(stream, 4) != [0x00, 0x61, 0x73, 0x6d]) {
     fail "File Missing Wasm Magic Number"
   }
-  if (getByteSlice(wasmFile, 4, 8) != [0x01, 0x00, 0x00, 0x00]) {
+  if (Stream.nextSliceList(stream, 4) != [0x01, 0x00, 0x00, 0x00]) {
     fail "File Missing Wasm Version"
   }
-  let wasmFile = Bytes.slice(8, Bytes.length(wasmFile) - 8, wasmFile)
   // Split File Into Sections
-  let wasmSections = sectionDecoder(wasmFile)
+  let wasmSections = sectionDecoder(stream)
   // Parse LinkingInfo Section
   let linkingInfo = getLinkingInfo(wasmSections);
   print(linkingInfo)
   // TODO: Parse Import Section
+  // Parse Section Headers To Determine The Number Of Things Like Functions, Globals, Imports, Exports, And other important data
   // TODO: Find Relevant Imports
   // TODO: Build File Map
   // TODO: Return A Result
   {
     importIdentifier: linkingInfo.importIdentifier,
     wasmSections: wasmSections,
-    wasmBinary: wasmFile,
+    wasmBinary: wasmBinary,
     functionReferences: linkingInfo.functionReferences,
     typeReferences: linkingInfo.typeReferences,
     globalReferences: linkingInfo.globalReferences,
