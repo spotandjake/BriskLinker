@@ -1,5 +1,5 @@
 // Imports
-import { WasmSection, sectionDecoder, getLinkingInfo } from "./Helpers"
+import { WasmSection, sectionDecoder, getLinkingInfo, decodeImportSection } from "./Helpers"
 import Stream from "./Stream"
 // Types
 export record FileData {
@@ -28,6 +28,7 @@ export let decodeFile = wasmBinary => {
   let linkingInfo = getLinkingInfo(wasmSections);
   print(linkingInfo)
   // TODO: Parse Import Section
+  decodeImportSection(wasmSections)
   // Parse Section Headers To Determine The Number Of Things Like Functions, Globals, Imports, Exports, And other important data
   // TODO: Find Relevant Imports
   // TODO: Build File Map

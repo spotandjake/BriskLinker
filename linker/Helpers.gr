@@ -30,6 +30,10 @@ export record LinkingInfo {
   // Global References List<Positions> relative to the code section
   globalReferences: List<Number>,
 }
+export record ImportInfo {
+  importModule: String,
+  importName: String
+}
 // SectionDecoder
 export let sectionDecoder = stream => {
   let mut sections = []
@@ -63,6 +67,44 @@ export let sectionDecoder = stream => {
   // Check If There Were Any Errors
   reverse(sections)
 }
+// SectionDecoders Helper
+let decodeSectionHeader = (stream) => {
+  // Get The Number Of Elements In The Section
+  Stream.nextUIntLEB128(stream)
+}
+// Section Decoders
+export let decodeImportSection = (sections) => {
+  // Find The Import Sections
+  let importSection = find((section) => match (section) {
+    ImportSection(_, _) => true,
+    _ => false,
+  }, sections)
+  match (importSection) {
+    // Parse The Section
+    Some(ImportSection(_, stream)) => {
+      let imports  = [];
+      // Set The Stream Position To 0
+      Stream.resetPointer(stream)
+      // Decode The Section Header
+      let importCount = decodeSectionHeader(stream)
+      print(importCount)
+      // Parse Each Import
+      for (let mut i = 0; i < importCount; i += 1) {
+        // Get The Import Module
+        let importModule = Stream.nextString(stream)
+        // Get The Import Name
+        let importName = Stream.nextString(stream)
+        // Get The Import Type
+        [ { importModule, importName }, ...imports ]
+      }
+      // Return A List Of Imports
+      imports
+    },
+    // If There Is No Import Section Then There Are No Imports
+    _ => [],
+  }
+}
+// Decode Linking Info Section
 let getRefs = (s) => init(Stream.nextUIntLEB128(s), (_) => Stream.nextUIntLEB128(s))
 export let getLinkingInfo = (sections) => {
   // Find The LinkingInfo Section

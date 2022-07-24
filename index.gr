@@ -35,4 +35,4 @@ let pathAbsolute = (parentPath, filePath) => {
   filePath
 }
 // Start Linker
-link("./Linker.wasm", readFile, pathAbsolute)
+link("./TestCases/Linker.wasm", readFile, pathAbsolute)
