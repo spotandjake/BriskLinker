@@ -1,6 +1,14 @@
 // Imports
-import { WasmSection, sectionDecoder, getLinkingInfo, decodeImportSection } from "./Helpers"
+import {
+  WasmSection,
+  ImportInfo,
+  sectionDecoder,
+  getLinkingInfo,
+  decodeImportSection,
+} from "./Helpers"
 import Stream from "./Stream"
+import List from "list"
+import String from "string"
 // Types
 export record FileData {
   importIdentifier: String,
@@ -25,21 +33,26 @@ export let decodeFile = wasmBinary => {
   // Split File Into Sections
   let wasmSections = sectionDecoder(stream)
   // Parse LinkingInfo Section
-  let linkingInfo = getLinkingInfo(wasmSections);
-  print(linkingInfo)
+  let linkingInfo = getLinkingInfo(wasmSections)
   // TODO: Parse Import Section
-  decodeImportSection(wasmSections)
+  let imports = decodeImportSection(wasmSections)
   // Parse Section Headers To Determine The Number Of Things Like Functions, Globals, Imports, Exports, And other important data
   // TODO: Find Relevant Imports
+  // TODO: I Should not need a type cast there, but the inferring seems to be broken
+  let briskImports = List.map((importData: ImportInfo) => importData.importModule, List.filter((importData: ImportInfo) =>
+    String.startsWith(
+      linkingInfo.importIdentifier,
+      importData.importModule
+    ), imports))
   // TODO: Build File Map
   // TODO: Return A Result
   {
     importIdentifier: linkingInfo.importIdentifier,
-    wasmSections: wasmSections,
-    wasmBinary: wasmBinary,
+    wasmSections,
+    wasmBinary,
     functionReferences: linkingInfo.functionReferences,
     typeReferences: linkingInfo.typeReferences,
     globalReferences: linkingInfo.globalReferences,
-    dependencies: []
+    dependencies: briskImports,
   }
 }

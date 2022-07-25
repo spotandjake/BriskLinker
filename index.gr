@@ -26,11 +26,14 @@ let readFile = filePath => {
       Bytes.fromString(contents)
     },
     // TODO: Return Err
-    Err(error) => throw error,
+    Err(error) => fail "[Error: " ++ filePath ++ "]: " ++ toString(error),
   }
 }
 // Definition For pathAbsolute
 let pathAbsolute = (parentPath, filePath) => {
+  // TODO: Develop A Nice Module For Handling File Paths
+  // TODO: Replace this with something that works better
+  print(parentPath)
   // TODO: Resolve Path
   filePath
 }

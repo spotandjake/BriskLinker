@@ -18,6 +18,22 @@ export enum WasmSection {
   DataSection(Number, Stream.Stream),
   DataCountSection(Number, Stream.Stream),
 }
+export enum WasmType {
+  I32,
+  I64,
+  F32,
+  F64,
+  FunctionType(List<WasmType>, List<WasmType>),
+  TypeIndex(Number),
+}
+export enum WasmImportDesc {
+  // TypeReference
+  FunctionImport(Number),
+  // TODO: Table
+  // TODO: Memory
+  // Mutable, Type
+  GlobalImport(Bool, WasmType),
+}
 export record LinkingInfo {
   // Language Import Identifier
   importIdentifier: String,
@@ -32,7 +48,8 @@ export record LinkingInfo {
 }
 export record ImportInfo {
   importModule: String,
-  importName: String
+  importName: String,
+  importDesc: WasmImportDesc,
 }
 // SectionDecoder
 export let sectionDecoder = stream => {
@@ -68,26 +85,37 @@ export let sectionDecoder = stream => {
   reverse(sections)
 }
 // SectionDecoders Helper
-let decodeSectionHeader = (stream) => {
+let decodeSectionHeader = stream => {
   // Get The Number Of Elements In The Section
   Stream.nextUIntLEB128(stream)
 }
+let decodeWasmType = stream => {
+  // Get Wasm Type
+  let wasmType = Stream.nextByte(stream)
+  // TODO: Make Sure We Can Parse All Types
+  match (wasmType) {
+    0x7f => I32,
+    0x7e => I64,
+    0x7d => F32,
+    0x7c => F64,
+    _ => fail "Invalid Wasm Type: " ++ toString(wasmType),
+  }
+}
 // Section Decoders
-export let decodeImportSection = (sections) => {
+export let decodeImportSection = sections => {
   // Find The Import Sections
-  let importSection = find((section) => match (section) {
+  let importSection = find(section => match (section) {
     ImportSection(_, _) => true,
     _ => false,
   }, sections)
   match (importSection) {
     // Parse The Section
     Some(ImportSection(_, stream)) => {
-      let imports  = [];
+      let mut imports = []
       // Set The Stream Position To 0
       Stream.resetPointer(stream)
       // Decode The Section Header
       let importCount = decodeSectionHeader(stream)
-      print(importCount)
       // Parse Each Import
       for (let mut i = 0; i < importCount; i += 1) {
         // Get The Import Module
@@ -95,7 +123,31 @@ export let decodeImportSection = (sections) => {
         // Get The Import Name
         let importName = Stream.nextString(stream)
         // Get The Import Type
-        [ { importModule, importName }, ...imports ]
+        let importKind = Stream.nextByte(stream)
+        let importDesc = match (importKind) {
+          // Function Import
+          0x00 => {
+            // Get The Function Type Index
+            let functionIndex = Stream.nextUIntLEB128(stream)
+            FunctionImport(functionIndex)
+          },
+          // TODO: Table Import
+          0x01 => fail "Table Import Not Yet Implemented",
+          // TODO: Memory Import
+          0x02 => fail "Memory Import Not Yet Implemented",
+          // Global Import
+          0x03 => {
+            // Get Global Type
+            let globalType = decodeWasmType(stream)
+            // Get Global Mutability
+            let globalMutable = Stream.nextByte(stream) == 0x01
+            // Return Description
+            GlobalImport(globalMutable, globalType)
+          },
+          _ => fail "Invalid Import Kind",
+        }
+        // Add The Import To ImportList
+        imports = [{ importModule, importName, importDesc }, ...imports]
       }
       // Return A List Of Imports
       imports
@@ -105,11 +157,13 @@ export let decodeImportSection = (sections) => {
   }
 }
 // Decode Linking Info Section
-let getRefs = (s) => init(Stream.nextUIntLEB128(s), (_) => Stream.nextUIntLEB128(s))
-export let getLinkingInfo = (sections) => {
+let getRefs = s =>
+  init(Stream.nextUIntLEB128(s), (_) => Stream.nextUIntLEB128(s))
+export let getLinkingInfo = sections => {
   // Find The LinkingInfo Section
-  let linkingInfo = find((section) => match (section) {
-    CustomSection(_, stream) when Stream.nextString(stream) == "LinkingInfo" => true,
+  let linkingInfo = find(section => match (section) {
+    CustomSection(_, stream) when Stream.nextString(stream) == "LinkingInfo" =>
+      true,
     _ => false,
   }, sections)
   // If We Did Not Find The Section Fail
@@ -124,6 +178,6 @@ export let getLinkingInfo = (sections) => {
         globalReferences: getRefs(stream),
       }
     },
-    _ => fail "Linking Info Section Not Found"
+    _ => fail "Linking Info Section Not Found",
   }
 }
