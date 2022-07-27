@@ -8,6 +8,7 @@ import String from "string"
 import { link } from "./linker/index"
 // Definition For Write File
 let writeFile = (filePath, fileContents) => {
+  // TODO: if the file already exists this does not work
   // Open The File
   let fd = File.pathOpen(
     File.pwdfd,

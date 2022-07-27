@@ -9,21 +9,21 @@ export enum WasmType {
   WasmF32,
   WasmF64,
   WasmFuncType(List<WasmType>, List<WasmType>),
-  WasmTypeReference(Number),
 }
 export enum WasmImportDescription {
   FunctionImport(Number),
   // TODO: Table Import
   // TODO: Memory Import
-  GlobalImport(Bool, WasmType)
+  GlobalImport(Bool, WasmType),
 }
 export record WasmImport {
   importModule: String,
   importName: String,
+  mut briskImport: Bool,
   importDescription: WasmImportDescription,
 }
 // Functions
-export let decodeWasmType = (stream) => {
+export let decodeWasmType = stream => {
   // Get Wasm Type
   let wasmType = Stream.nextByte(stream)
   // TODO: Make Sure We Can Parse All Types
@@ -35,12 +35,13 @@ export let decodeWasmType = (stream) => {
     _ => fail "Invalid Wasm Type: " ++ toString(wasmType),
   }
 }
-export let decodeTypeReference = (wasmTypes, typeIndex) => match (List.nth(typeIndex, wasmTypes)) {
-  Some(wasmType) => wasmType,
-  None => fail "Invalid Wasm Type Reference"
-}
-export let getWasmHeaderCount = (wasmStream) => Stream.nextUIntLEB128(wasmStream)
-export let decodeWasmImport = (wasmStream) => {
+export let decodeTypeReference = (wasmTypes, typeIndex) =>
+  match (List.nth(typeIndex, wasmTypes)) {
+    Some(wasmType) => wasmType,
+    None => fail "Invalid Wasm Type Reference",
+  }
+export let getWasmHeaderCount = wasmStream => Stream.nextUIntLEB128(wasmStream)
+export let decodeWasmImport = wasmStream => {
   // Get The Import Module
   let importModule = Stream.nextString(wasmStream)
   // Get The Import Name
@@ -71,9 +72,5 @@ export let decodeWasmImport = (wasmStream) => {
     _ => fail "Invalid Import Kind",
   }
   // Return Package
-  {
-    importModule,
-    importName,
-    importDescription
-  }
+  { importModule, importName, briskImport: false, importDescription }
 }
