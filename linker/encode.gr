@@ -1,0 +1,16 @@
+import List from "list"
+// Encoders
+export let encodeUIntLeb128 = (value) => {
+  let mut value = value
+  let mut buffer = [];
+  while (true) {
+    let mut byte = value & 0x7f;
+    value = value >>> 7;
+    if (value != 0) {
+      byte = byte | 0x80;
+    }
+    buffer = [ byte, ...buffer]
+    if (value == 0) break
+  }
+  List.reverse(buffer)
+}

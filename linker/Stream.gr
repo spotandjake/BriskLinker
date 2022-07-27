@@ -11,6 +11,12 @@ export record Stream {
   mut position: Number,
 }
 // Functions
+export let empty = () => {
+  {
+    data: Bytes.empty,
+    position: 0,
+  }
+}
 // TODO: I want to use the name from
 export let fromBytes = (data) => {
   // Create A New Stream
@@ -18,6 +24,10 @@ export let fromBytes = (data) => {
     data,
     position: 0,
   }
+}
+// Get Information
+export let isEmpty = (stream) => {
+  Bytes.length(stream.data) == 0
 }
 // Get The Next Element
 @unsafe

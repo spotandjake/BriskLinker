@@ -1,7 +1,10 @@
 import Map from "map"
 import Set from "set"
 import List from "list"
-import { decodeFile } from "./DecodeFile"
+import Array from "array"
+import Buffer from "buffer"
+import { decodeFile } from "./Decoder/DecodeFile"
+import { buildFile } from "./BuildFile"
 // Linker Entry Function
 export let link = (entryFile, fileReader, pathAbsolute) => {
   // Create Dependency Graph
@@ -27,12 +30,16 @@ export let link = (entryFile, fileReader, pathAbsolute) => {
     // Add File To Dependency Graph
     Map.set(fileName, fileData, dependencyGraph)
     // Add The Dependencies To The unparsed Set
-    // TODO: Consider Combining this loop with the one used to convert the path to absolute, (should work as i think records are passed by reference)
     List.forEach(filePath => {
       if (!Map.contains(filePath, dependencyGraph))
         Set.add(filePath, unparsedDependencies)
     }, fileData.dependencies)
+    break
   }
-  print(Map.toList(dependencyGraph))
-  void
+  // TODO: Sort The Dependency Graph
+  let dependencyChain = Array.fromList(Map.values(dependencyGraph))
+  // Build The Linked File
+  let wasmOutput = buildFile(dependencyChain)
+  // Return The File
+  wasmOutput
 }

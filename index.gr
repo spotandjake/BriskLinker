@@ -2,8 +2,40 @@
 import Bytes from "bytes"
 import File from "sys/file"
 import Result from "result"
+import Option from "option"
 import Int64 from "int64"
+import String from "string"
 import { link } from "./linker/index"
+// Definition For Write File
+let writeFile = (filePath, fileContents) => {
+  // Open The File
+  let fd = File.pathOpen(
+    File.pwdfd,
+    [File.SymlinkFollow],
+    filePath,
+    [File.Create],
+    [File.FdWrite],
+    [File.FdWrite],
+    []
+  )
+  // Read The File Contents
+  match (fd) {
+    Ok(descriptor) => {
+      // Write The File Contents
+      let writeSuccess = File.fdWrite(descriptor, fileContents)
+      match (writeSuccess) {
+        Ok(_) => void,
+        Err(error) =>
+          fail "[Error Writing File: " ++
+          filePath ++
+          "]: " ++
+          toString(error),
+      }
+    },
+    // TODO: Return Err
+    Err(error) => fail "[Error: " ++ filePath ++ "]: " ++ toString(error),
+  }
+}
 // Definition For ReadFile
 let readFile = filePath => {
   // Open The File
@@ -33,9 +65,29 @@ let readFile = filePath => {
 let pathAbsolute = (parentPath, filePath) => {
   // TODO: Develop A Nice Module For Handling File Paths
   // TODO: Replace this with something that works better
-  print(parentPath)
+  // Remove The File Name From The ParentPath
+  let parentPath = String.slice(
+    0,
+    String.length(parentPath) -
+    Option.unwrapWithDefault(
+      0,
+      String.indexOf("/", String.reverse(parentPath))
+    ),
+    parentPath
+  )
   // TODO: Resolve Path
-  filePath
+  parentPath ++ filePath
 }
-// Start Linker
-link("./TestCases/Linker.wasm", readFile, pathAbsolute)
+// Perform Linking
+let linkBuild = (filePath, outputPath) => {
+  // Link The File
+  let wasmOutput = link(filePath, readFile, pathAbsolute)
+  // Write The output File
+  writeFile(outputPath, wasmOutput)
+}
+
+// link The Build
+linkBuild("./TestCases/Linker.br.wasm", "./TestCases/Linker_Linked.br.wasm")
+// Imports
+// Imports
+// Imports

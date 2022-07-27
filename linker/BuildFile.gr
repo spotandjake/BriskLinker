@@ -1,0 +1,117 @@
+// Imports
+import Buffer from "buffer"
+import Array from "array"
+import Int32 from "int32"
+import Bytes from "bytes"
+import Stream from "./Stream"
+import { getTypeSection } from "./Decoder/DecodeSection"
+import Encode from "./encode"
+// Type Imports
+import { FileData } from "./Decoder/DecodeFile"
+// Buffer Manipulation
+let appendBufferByte = (buffer, byte) => {
+  Buffer.addInt8(Int32.fromNumber(byte), buffer)
+  buffer
+}
+let appendBufferByteArray = (buffer, byteArray) => {
+  let mut buffer = buffer
+  for (let mut i = 0; i < Array.length(byteArray); i += 1) {
+    buffer = appendBufferByte(buffer, byteArray[i])
+  }
+  buffer
+}
+// Create The Sections
+export let createTypeSection = (wasmBinary, dependencyChain) => {
+  let mut typeCount = 0
+  let typeSection = Buffer.make(0)
+  // For Each Dependency
+  for (let mut i = 0; i < Array.length(dependencyChain); i += 1) {
+    // Get The Dependency
+    let dependency = dependencyChain[i] : FileData
+    // Get The Type Section
+    let typeStream = getTypeSection(dependency.wasmSections)
+    // Skip This Dependency If There Is Not A Type Section
+    if (Stream.isEmpty(typeStream)) continue
+    // Decode The Number Of Types
+    let numberOfTypes = Stream.nextUIntLEB128(typeStream)
+    // Increment The Number Of Types
+    typeCount += numberOfTypes
+    // TODO: Set The dependency's Type offset
+    // Append The Type Section To The New Type Section
+    Buffer.addBytes(Stream.nextSliceBytes(typeStream, Stream.remainingLength(typeStream)), typeSection)
+  }
+  // Write The Section Header
+  let wasmBinary = appendBufferByte(wasmBinary, 0x01) // Write Section ID
+  let wasmBinary = appendBufferByteArray(
+    wasmBinary,
+    Array.fromList(
+      Encode.encodeUIntLeb128(Buffer.length(typeSection))
+    )
+  ) // Write Section Size
+  let wasmBinary = appendBufferByteArray(
+    wasmBinary,
+    Array.fromList(
+      Encode.encodeUIntLeb128(typeCount)
+    )
+  ) // Write Type Count
+  // Append The Type Section To The WasmBinary
+  print(wasmBinary)
+  print(typeSection)
+  Buffer.addBuffer(typeSection, wasmBinary)
+  print(wasmBinary)
+  print(Bytes.length(Buffer.toBytes(wasmBinary)))
+  print(Buffer.toBytes(wasmBinary))
+  print(Bytes.fromString(Buffer.toString(wasmBinary)))
+  // Return The Buffer
+  wasmBinary
+}
+export let createImportSection = (wasmBinary, dependencyChain) => {
+  void
+}
+export let createFunctionSection = (wasmBinary, dependencyChain) => {
+  void
+}
+export let createTableSection = (wasmBinary, dependencyChain) => {
+  void
+}
+export let createMemorySection = (wasmBinary, dependencyChain) => {
+  void
+}
+export let createGlobalSection = (wasmBinary, dependencyChain) => {
+  void
+}
+export let createExportSection = (wasmBinary, dependencyChain) => {
+  void
+}
+export let createStartSection = (wasmBinary, dependencyChain) => {
+  void
+}
+export let createElementSection = (wasmBinary, dependencyChain) => {
+  void
+}
+export let createCodeSection = (wasmBinary, dependencyChain) => {
+  void
+}
+export let createDataSection = (wasmBinary, dependencyChain) => {
+  // Create Data Section
+  // Create Data Count Section
+  void
+}
+// Build The File
+export let buildFile = (dependencyChain) => {
+  // Create The Buffer To Hold The File
+  let wasmBinary = Buffer.make(0)
+  // Add The Magic Wasm Headers
+  let wasmBinary = appendBufferByteArray(wasmBinary, [>0x00, 0x61, 0x73, 0x6d])
+  let wasmBinary = appendBufferByteArray(wasmBinary, [>0x01, 0x00, 0x00, 0x00])
+  // TODO: Create The Custom Sections
+  // TODO: Remap The Name Section
+  // TODO: Build A New Linking Info Sections
+  // TODO: Build Normal Sections
+  // Build The Type Section
+  let wasmBinary = createTypeSection(wasmBinary, dependencyChain)
+  // Return The File
+  // TODO: when #1375 is solved on the grian github switch back to Buffer.toString
+  // Buffer.toString(wasmBinary)
+  Bytes.fromString(Buffer.toString(wasmBinary))
+}

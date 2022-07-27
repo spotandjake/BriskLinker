@@ -1,0 +1,152 @@
+// Imports
+import List from "list"
+import Stream from "../Stream"
+import { getWasmHeaderCount, decodeWasmImport } from "./WasmDecoder"
+// Types
+export enum WasmSection {
+  // SectionType(Length, Body)
+  CustomSection(Number, Stream.Stream),
+  TypeSection(Number, Stream.Stream),
+  ImportSection(Number, Stream.Stream),
+  FunctionSection(Number, Stream.Stream),
+  TableSection(Number, Stream.Stream),
+  MemorySection(Number, Stream.Stream),
+  GlobalSection(Number, Stream.Stream),
+  ExportSection(Number, Stream.Stream),
+  StartSection(Number, Stream.Stream),
+  ElementSection(Number, Stream.Stream),
+  CodeSection(Number, Stream.Stream),
+  DataSection(Number, Stream.Stream),
+  DataCountSection(Number, Stream.Stream),
+}
+export record LinkingInfo {
+  // Language Import Identifier
+  importIdentifier: String,
+  // The file functionOffsetGlobal Index
+  functionOffsetGlobal: Number,
+  // Function Reference List<Positions> relative to the code section
+  functionReferences: List<Number>,
+  // Type References List<Positions> relative to the code section
+  typeReferences: List<Number>,
+  // Global References List<Positions> relative to the code section
+  globalReferences: List<Number>,
+}
+// Getters
+export let getSectionStream = (wasmSection) => {
+  match (wasmSection) {
+    CustomSection(_, stream) |
+    TypeSection(_, stream) |
+    ImportSection(_, stream) |
+    FunctionSection(_, stream) |
+    TableSection(_, stream) |
+    MemorySection(_, stream) |
+    GlobalSection(_, stream) |
+    ExportSection(_, stream) |
+    StartSection(_, stream) |
+    ElementSection(_, stream) |
+    CodeSection(_, stream) |
+    DataSection(_, stream) |
+    DataCountSection(_, stream) => stream
+  }
+}
+export let getTypeSection = (wasmSections) => {
+  let typeSection = List.find(section => match (section) {
+    TypeSection(_, _) => true,
+    _ => false,
+  }, wasmSections)
+  match (typeSection) {
+    Some(TypeSection(_, stream)) => stream,
+    _ => Stream.empty(),
+  }
+}
+export let getImportStream = (wasmSections) => {
+  let importSection = List.find(section => match (section) {
+    ImportSection(_, _) => true,
+    _ => false,
+  }, wasmSections)
+  match (importSection) {
+    Some(ImportSection(_, stream)) => stream,
+    _ => Stream.empty(),
+  }
+}
+export let getLinkingInfoStream = (wasmSections) => {
+  let linkingSection = List.find(section => match (section) {
+    CustomSection(_, stream) when Stream.nextString(stream) == "LinkingInfo" => true,
+    _ => false,
+  }, wasmSections)
+  match (linkingSection) {
+    Some(CustomSection(_, stream)) => stream,
+    _ => fail "No Linking Info Section Could Be Found",
+  }
+}
+// Decoders
+export let decodeSection = (wasmStream) => {
+  // Get Section Id
+  let sectionID = Stream.nextByte(wasmStream)
+  // Get The Section Length
+  let sectionLength = Stream.nextUIntLEB128(wasmStream)
+  // Get The Section Contents
+  let sectionContents = Stream.nextStreamSlice(wasmStream, sectionLength)
+  // Match The Section Type
+  match (sectionID) {
+    0x00 => CustomSection(sectionLength, sectionContents),
+    0x01 => TypeSection(sectionLength, sectionContents),
+    0x02 => ImportSection(sectionLength, sectionContents),
+    0x03 => FunctionSection(sectionLength, sectionContents),
+    0x04 => TableSection(sectionLength, sectionContents),
+    0x05 => MemorySection(sectionLength, sectionContents),
+    0x06 => GlobalSection(sectionLength, sectionContents),
+    0x07 => ExportSection(sectionLength, sectionContents),
+    0x08 => StartSection(sectionLength, sectionContents),
+    0x09 => ElementSection(sectionLength, sectionContents),
+    0x0a => CodeSection(sectionLength, sectionContents),
+    0x0b => DataSection(sectionLength, sectionContents),
+    0x0c => DataCountSection(sectionLength, sectionContents),
+    _ => fail "Invalid Section",
+  }
+}
+export let decodeFile = (wasmStream) => {
+  let mut sections = []
+  while (Stream.remainingLength(wasmStream) > 0) {
+    let section = decodeSection(wasmStream)
+    // Add The Section To The List
+    sections = [section, ...sections]
+  }
+  // Check If There Were Any Errors
+  List.reverse(sections)
+}
+// Get Refs
+let getRefs = (wasmStream) => List.init(Stream.nextUIntLEB128(wasmStream), (_) => Stream.nextUIntLEB128(wasmStream))
+// Decode Sections
+export let decodeLinkingSection = (wasmSections) => {
+  // Get LinkingInfoStream
+  let linkingInfoStream = getLinkingInfoStream(wasmSections)
+  // Parse Linking Info Section
+  let importIdentifier = Stream.nextString(linkingInfoStream)
+  let functionOffsetGlobal = Stream.nextUIntLEB128(linkingInfoStream)
+  // Get References
+  let functionReferences = getRefs(linkingInfoStream)
+  let typeReferences = getRefs(linkingInfoStream)
+  let globalReferences = getRefs(linkingInfoStream)
+  // Package
+  {
+    importIdentifier,
+    functionOffsetGlobal,
+    functionReferences,
+    typeReferences,
+    globalReferences
+  }
+}
+export let decodeImportSection = (wasmSections) => {
+  // Find The Import Sections
+  let wasmStream = getImportStream(wasmSections);
+  // Set The Stream Position To 0
+  Stream.resetPointer(wasmStream)
+  // Decode The Section Header
+  let importCount = getWasmHeaderCount(wasmStream)
+  // Parse Each Import
+  List.init(importCount, (_) => {
+    // Decode The Import
+    decodeWasmImport(wasmStream)
+  })
+}

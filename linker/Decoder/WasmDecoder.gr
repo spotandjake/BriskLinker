@@ -1,0 +1,79 @@
+// Decodes Wasm Value
+// Imports
+import List from "list"
+import Stream from "../Stream"
+// Types
+export enum WasmType {
+  WasmI32,
+  WasmI64,
+  WasmF32,
+  WasmF64,
+  WasmFuncType(List<WasmType>, List<WasmType>),
+  WasmTypeReference(Number),
+}
+export enum WasmImportDescription {
+  FunctionImport(Number),
+  // TODO: Table Import
+  // TODO: Memory Import
+  GlobalImport(Bool, WasmType)
+}
+export record WasmImport {
+  importModule: String,
+  importName: String,
+  importDescription: WasmImportDescription,
+}
+// Functions
+export let decodeWasmType = (stream) => {
+  // Get Wasm Type
+  let wasmType = Stream.nextByte(stream)
+  // TODO: Make Sure We Can Parse All Types
+  match (wasmType) {
+    0x7f => WasmI32,
+    0x7e => WasmI64,
+    0x7d => WasmF32,
+    0x7c => WasmF64,
+    _ => fail "Invalid Wasm Type: " ++ toString(wasmType),
+  }
+}
+export let decodeTypeReference = (wasmTypes, typeIndex) => match (List.nth(typeIndex, wasmTypes)) {
+  Some(wasmType) => wasmType,
+  None => fail "Invalid Wasm Type Reference"
+}
+export let getWasmHeaderCount = (wasmStream) => Stream.nextUIntLEB128(wasmStream)
+export let decodeWasmImport = (wasmStream) => {
+  // Get The Import Module
+  let importModule = Stream.nextString(wasmStream)
+  // Get The Import Name
+  let importName = Stream.nextString(wasmStream)
+  // Get The Import Type
+  let importKind = Stream.nextByte(wasmStream)
+  // Decode Import Description
+  let importDescription = match (importKind) {
+    // Function Import
+    0x00 => {
+      // Get The Function Type Index
+      let functionIndex = Stream.nextUIntLEB128(wasmStream)
+      FunctionImport(functionIndex)
+    },
+    // TODO: Table Import
+    0x01 => fail "Table Import Not Yet Implemented",
+    // TODO: Memory Import
+    0x02 => fail "Memory Import Not Yet Implemented",
+    // Global Import
+    0x03 => {
+      // Get Global Type
+      let globalType = decodeWasmType(wasmStream)
+      // Get Global Mutability
+      let globalMutable = Stream.nextByte(wasmStream) == 0x01
+      // Return Description
+      GlobalImport(globalMutable, globalType)
+    },
+    _ => fail "Invalid Import Kind",
+  }
+  // Return Package
+  {
+    importModule,
+    importName,
+    importDescription
+  }
+}
