@@ -5,6 +5,9 @@ import Stream from "../Stream"
 import DecodeSection, { decodeLinkingSection, decodeFile, decodeImportSection } from "./DecodeSection"
 import WasmDecoder from "./WasmDecoder"
 // Types
+export record OffsetData {
+  mut typeOffset: Number,
+}
 export record FileData {
   // Module Data
   importIdentifier: String,
@@ -18,6 +21,8 @@ export record FileData {
   typeReferences: List<Number>,
   globalReferences: List<Number>,
   mut dependencies: List<String>,
+  // OffsetData
+  mut offsetData: OffsetData,
 }
 // Decodes A Wasm File
 export let decodeFile = wasmBinary => {
@@ -61,5 +66,8 @@ export let decodeFile = wasmBinary => {
     typeReferences: linkingInfo.typeReferences,
     globalReferences: linkingInfo.globalReferences,
     dependencies: briskImports,
+    offsetData: {
+      typeOffset: 0,
+    }
   }
 }

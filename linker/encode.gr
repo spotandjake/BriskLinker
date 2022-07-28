@@ -56,27 +56,21 @@ export let rec encodeWasmType = wasmType => {
 }
 let encodeImportDescription = importDescription => {
   match (importDescription) {
-    WasmDecoder.FunctionImport(typeRef) => {
-      [0x00, ...encodeUIntLeb128(typeRef)]
-
-      // typeDescription, typeRef
-    },
+    // typeDescription, typeRef
+    WasmDecoder.FunctionImport(typeRef) => [0x00, ...encodeUIntLeb128(typeRef)],
     // TODO: Table Import
     // TODO: Memory Import
     WasmDecoder.GlobalImport(mutable, wasmType) => {
       let constant = if (mutable) 0x01 else 0x00
-      [0x03, encodeWasmType(wasmType), constant]
-
       // typeDescription, typeRef
+      List.append([0x03, ...encodeWasmType(wasmType)], [constant])
     },
   }
 }
 export let encodeImport = (importModule, importName, importDescription) => {
   let importModule = encodeString(importModule)
   let importName = encodeString(importName)
-  print(importDescription)
   let importDescription = encodeImportDescription(importDescription)
-  print(importDescription)
-  // Combine Into One Array
-  Array.concat([importModule, importName, importDescription])
+  // Combine Into One List
+  List.flatten([importModule, importName, importDescription])
 }

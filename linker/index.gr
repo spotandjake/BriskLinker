@@ -36,7 +36,7 @@ export let link = (entryFile, fileReader, pathAbsolute) => {
     }, fileData.dependencies)
   }
   // TODO: Sort The Dependency Graph
-  let dependencyChain = Array.fromList(Map.values(dependencyGraph))
+  let dependencyChain = Map.values(dependencyGraph)
   // Build The Linked File
   let wasmOutput = buildFile(dependencyChain)
   // Return The File

@@ -66,6 +66,7 @@ let readFile = filePath => {
 let pathAbsolute = (parentPath, filePath) => {
   // TODO: Develop A Nice Module For Handling File Paths
   // TODO: Replace this with something that works better
+  // TODO: Normalize The File Path because currently this will not work well
   // Remove The File Name From The ParentPath
   let parentPath = String.slice(
     0,

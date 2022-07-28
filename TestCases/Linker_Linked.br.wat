@@ -6,4 +6,4 @@
   (type (;4;) (func))
   (import "brisk:LinkingConstant" "$Brisk$Constant:moduleFunctionOffset" (global (;0;) i32))
   (import "env" "print" (func (;0;) (type 0)))
-  (import "env" "print" (func (;1;) (type 0))))
+  (import "env" "print" (func (;1;) (type 2))))
