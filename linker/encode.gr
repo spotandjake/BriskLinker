@@ -2,7 +2,7 @@ import List from "list"
 import Array from "array"
 import String from "string"
 import Char from "char"
-import WasmDecoder, { WasmImportDescription } from "./Decoder/WasmDecoder"
+import WasmDecoder from "./Decoder/WasmDecoder"
 // Encoders
 // Encode Primitives
 export let encodeUIntLeb128 = value => {

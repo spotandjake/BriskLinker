@@ -3,7 +3,7 @@ import Set from "set"
 import List from "list"
 import Array from "array"
 import Buffer from "buffer"
-import { decodeFile } from "./Decoder/DecodeFile"
+import DecodeFile, { decodeFile } from "./Decoder/DecodeFile"
 import { buildFile } from "./BuildFile"
 // Linker Entry Function
 export let link = (entryFile, fileReader, pathAbsolute) => {

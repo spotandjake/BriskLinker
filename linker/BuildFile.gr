@@ -5,11 +5,11 @@ import List from "list"
 import Int32 from "int32"
 import Bytes from "bytes"
 import Stream from "./Stream"
-import { getTypeSection } from "./Decoder/DecodeSection"
-import { WasmImport, WasmImportDescription } from "./Decoder/WasmDecoder"
+import DecodeSection, { getTypeSection } from "./Decoder/DecodeSection"
+import WasmDecoder from "./Decoder/WasmDecoder"
 import Encoder from "./encode"
 // Type Imports
-import { FileData } from "./Decoder/DecodeFile"
+import DecodeFile from "./Decoder/DecodeFile"
 // Buffer Manipulation
 let appendBufferByte = (buffer, byte) => {
   Buffer.addInt8(Int32.fromNumber(byte), buffer)
@@ -29,7 +29,7 @@ export let createTypeSection = (wasmBinary, dependencyChain) => {
   // For Each Dependency
   for (let mut i = 0; i < Array.length(dependencyChain); i += 1) {
     // Get The Dependency
-    let dependency = dependencyChain[i]: FileData
+    let dependency = dependencyChain[i]: DecodeFile.FileData
     // Get The Type Section
     let typeStream = getTypeSection(dependency.wasmSections)
     // Skip This Dependency If There Is Not A Type Section
@@ -66,9 +66,9 @@ export let createImportSection = (wasmBinary, dependencyChain) => {
   // For Each Dependency
   for (let mut i = 0; i < Array.length(dependencyChain); i += 1) {
     // Get The Dependency
-    let dependency = dependencyChain[i]: FileData
+    let dependency = dependencyChain[i]: DecodeFile.FileData
     // Map Each Import
-    List.forEach((wasmImport: WasmImport) => {
+    List.forEach((wasmImport: WasmDecoder.WasmImport) => {
       // TODO: Link Together Brisk Imports
       if (wasmImport.briskImport) {
         void
