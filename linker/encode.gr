@@ -1,5 +1,5 @@
 import List from "list"
-import Array from "array"
+import List from "list"
 import String from "string"
 import Char from "char"
 import WasmDecoder from "./Decoder/WasmDecoder"
@@ -17,42 +17,38 @@ export let encodeUIntLeb128 = value => {
     buffer = [byte, ...buffer]
     if (value == 0) break
   }
-  Array.fromList(List.reverse(buffer))
+  List.reverse(buffer)
 }
 export let _encodeString = str => {
-  Array.init(String.length(str), index => {
+  List.init(String.length(str), index => {
     // TODO: Switch To Using String.charCodeAt when #1376 lands
     Char.code(String.charAt(index, str))
   })
 }
 export let encodeString = str => {
   let stringContents = _encodeString(str)
-  Array.append(encodeUIntLeb128(Array.length(stringContents)), stringContents)
+  List.append(encodeUIntLeb128(List.length(stringContents)), stringContents)
 }
 // Wasm Encoders
 export let rec encodeWasmType = wasmType => {
   match (wasmType) {
-    WasmDecoder.WasmI32 => [> 0x7f],
-    WasmDecoder.WasmI64 => [> 0x7e],
-    WasmDecoder.WasmF64 => [> 0x7c],
-    WasmDecoder.WasmF32 => [> 0x7d],
+    WasmDecoder.WasmI32 => [0x7f],
+    WasmDecoder.WasmI64 => [0x7e],
+    WasmDecoder.WasmF64 => [0x7c],
+    WasmDecoder.WasmF32 => [0x7d],
     WasmDecoder.WasmFuncType(params, results) => {
       let paramCount = List.length(params)
       let resultCount = List.length(results)
-      let mut encodedFuncType = [> 0x60]
-      encodedFuncType = Array.append(
-        encodedFuncType,
-        encodeUIntLeb128(paramCount)
-      )
+      let mut encodedFuncType = [0x60, ...encodeUIntLeb128(paramCount)]
       List.forEach(param => {
-        encodedFuncType = Array.append(encodedFuncType, encodeWasmType(param))
+        encodedFuncType = List.append(encodedFuncType, encodeWasmType(param))
       }, params)
-      encodedFuncType = Array.append(
+      encodedFuncType = List.append(
         encodedFuncType,
         encodeUIntLeb128(resultCount)
       )
       List.forEach(result => {
-        encodedFuncType = Array.append(encodedFuncType, encodeWasmType(result))
+        encodedFuncType = List.append(encodedFuncType, encodeWasmType(result))
       }, results)
       encodedFuncType
     },
@@ -61,26 +57,26 @@ export let rec encodeWasmType = wasmType => {
 let encodeImportDescription = importDescription => {
   match (importDescription) {
     WasmDecoder.FunctionImport(typeRef) => {
-      // TODO: Use Array spread if it is added
-      Array.concat(
-        [[> 0x00], encodeUIntLeb128(typeRef)]
-      ) // typeDescription, typeRef
+      [0x00, ...encodeUIntLeb128(typeRef)]
+
+      // typeDescription, typeRef
     },
     // TODO: Table Import
     // TODO: Memory Import
     WasmDecoder.GlobalImport(mutable, wasmType) => {
       let constant = if (mutable) 0x01 else 0x00
-      // TODO: Use Array spread if it is added
-      Array.concat(
-        [[> constant], encodeWasmType(wasmType)]
-      ) // typeDescription, typeRef
+      [0x03, encodeWasmType(wasmType), constant]
+
+      // typeDescription, typeRef
     },
   }
 }
 export let encodeImport = (importModule, importName, importDescription) => {
   let importModule = encodeString(importModule)
   let importName = encodeString(importName)
+  print(importDescription)
   let importDescription = encodeImportDescription(importDescription)
+  print(importDescription)
   // Combine Into One Array
   Array.concat([importModule, importName, importDescription])
 }

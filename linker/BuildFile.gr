@@ -132,8 +132,13 @@ export let createDataSection = (wasmBinary, dependencyChain) => {
   // Create Data Count Section
   void
 }
+// Offset Data Record
+record OffsetData {
+  mut typeOffset: Number,
+}
 // Build The File
 export let buildFile = dependencyChain => {
+  // Offset Data
   // Create The Buffer To Hold The File
   let wasmBinary = Buffer.make(0)
   // Add The Magic Wasm Headers
