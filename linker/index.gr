@@ -9,6 +9,7 @@ import { buildFile } from "./BuildFile"
 export let link = (entryFile, fileReader, pathAbsolute) => {
   // Create Dependency Graph
   let dependencyGraph = Map.make()
+  // TODO: We dont need to use an array here consider using a stack or a list, and then check for uniqueness based on the map
   let unparsedDependencies = Set.make()
   // Add Entry File To List
   Set.add(entryFile, unparsedDependencies)

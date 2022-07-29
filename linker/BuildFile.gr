@@ -64,8 +64,13 @@ export let createTypeSection = (wasmBinary, dependencyChain) => {
 export let createImportSection = (wasmBinary, dependencyChain) => {
   let mut importCount = 0
   let importSection = Buffer.make(0)
+  let mut importFunctionOffset = 0
+  let mut importGlobalOffset = 0
   // For Each Dependency
   List.forEach((dependency: DecodeFile.FileData) => {
+    // Set Offsets
+    dependency.offsetData.importFunctionOffset = importFunctionOffset
+    dependency.offsetData.importGlobalOffset = importGlobalOffset
     // Get Type Offset
     let typeOffset = dependency.offsetData.typeOffset;
     // Map Each Import
@@ -79,10 +84,19 @@ export let createImportSection = (wasmBinary, dependencyChain) => {
         let importName = wasmImport.importName
         let importDesc = wasmImport.importDescription
         // Map The Actual Import
-        // TODO: Add To Offsets For Globals And Functions
+        // TODO: We can only have one table import and one memory import so take the ones from the entryFile
         let importDesc = match (importDesc) {
           // typeDescription, typeRef
-          WasmDecoder.FunctionImport(typeRef) => WasmDecoder.FunctionImport(typeOffset + typeRef),
+          WasmDecoder.FunctionImport(typeRef) => {
+            dependency.offsetData.importFunctionCount += 1
+            importFunctionOffset += 1
+            WasmDecoder.FunctionImport(typeOffset + typeRef)
+          },
+          WasmDecoder.GlobalImport(_, _) => {
+            dependency.offsetData.importGlobalCount += 1
+            importGlobalOffset += 1
+            importDesc
+          },
           _ => importDesc,
         }
         // Rebuild The Import
@@ -111,7 +125,20 @@ export let createImportSection = (wasmBinary, dependencyChain) => {
   wasmBinary
 }
 export let createFuncSection = (wasmBinary, dependencyChain) => {
-  void
+  let mut functionCount = 0
+  let funcSection = Buffer.make(0)
+  // For Each Dependency
+  List.forEach((dependency: DecodeFile.FileData) => {
+    // Map The Function Section
+    print(dependency)
+    // TODO: Replace All Type References
+  }, dependencyChain)
+  // Append The Function Section To The WasmBinary
+  print("start")
+  Buffer.addBuffer(funcSection, wasmBinary)
+  print("end")
+  // Return The Buffer
+  wasmBinary
 }
 export let createTableSection = (wasmBinary, dependencyChain) => {
   void
@@ -152,6 +179,7 @@ export let buildFile = dependencyChain => {
   // TODO: Build Sections
   let wasmBinary = createTypeSection(wasmBinary, dependencyChain)
   let wasmBinary = createImportSection(wasmBinary, dependencyChain)
+  let wasmBinary = createFuncSection(wasmBinary, dependencyChain)
   // Return The File
   Buffer.toString(wasmBinary)
 }

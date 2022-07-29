@@ -1,0 +1,8 @@
+// Resolves Two Paths Into The Base Path Relative To The Entry File
+export let resolvePath = (parentPath, childPath) => {
+  // Get The Directory Of The parentPath,
+  // Combine The Paths
+  // Normalize The Paths
+  // Return The Path
+  ""
+}
