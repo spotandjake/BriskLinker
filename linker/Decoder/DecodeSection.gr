@@ -19,17 +19,18 @@ export enum WasmSection {
   DataSection(Number, Stream.Stream),
   DataCountSection(Number, Stream.Stream),
 }
+export enum CodeReference {
+  FunctionRef(Number),
+  TypeRef(Number),
+  GlobalRef(Number),
+}
 export record LinkingInfo {
   // Language Import Identifier
   importIdentifier: String,
   // The file functionOffsetGlobal Index
   functionOffsetGlobal: Number,
-  // Function Reference List<Positions> relative to the code section
-  functionReferences: List<Number>,
-  // Type References List<Positions> relative to the code section
-  typeReferences: List<Number>,
-  // Global References List<Positions> relative to the code section
-  globalReferences: List<Number>,
+  // Code References
+  codeReferences: List<CodeReference>,
 }
 // Getters
 export let getSectionStream = (wasmSection) => {
@@ -66,6 +67,26 @@ export let getImportStream = (wasmSections) => {
   }, wasmSections)
   match (importSection) {
     Some(ImportSection(_, stream)) => stream,
+    _ => Stream.empty(),
+  }
+}
+export let getFuncSection = (wasmSections) => {
+  let funcSection = List.find(section => match (section) {
+    FunctionSection(_, _) => true,
+    _ => false,
+  }, wasmSections)
+  match (funcSection) {
+    Some(FunctionSection(_, stream)) => stream,
+    _ => Stream.empty(),
+  }
+}
+export let getCodeSection = (wasmSections) => {
+  let codeSection = List.find(section => match (section) {
+    CodeSection(_, _) => true,
+    _ => false,
+  }, wasmSections)
+  match (codeSection) {
+    Some(CodeSection(_, stream)) => stream,
     _ => Stream.empty(),
   }
 }
@@ -125,16 +146,31 @@ export let decodeLinkingSection = (wasmSections) => {
   let importIdentifier = Stream.nextString(linkingInfoStream)
   let functionOffsetGlobal = Stream.nextUIntLEB128(linkingInfoStream)
   // Get References
-  let functionReferences = getRefs(linkingInfoStream)
-  let typeReferences = getRefs(linkingInfoStream)
-  let globalReferences = getRefs(linkingInfoStream)
+  let codeReferences = []
+  let codeReferences = [ List.map((ref) => FunctionRef(ref), getRefs(linkingInfoStream)), ...codeReferences ]
+  let codeReferences = [ List.map((ref) => TypeRef(ref), getRefs(linkingInfoStream)), ...codeReferences ]
+  let codeReferences = [ List.map((ref) => GlobalRef(ref), getRefs(linkingInfoStream)), ...codeReferences ]
+  // Flatten List
+  let codeReferences = List.flatten(codeReferences)
+  // Sort CodeReferences
+  let codeReferences = List.sort((a, b) => {
+    let a = match (a) {
+      FunctionRef(ref) => ref,
+      TypeRef(ref) => ref,
+      GlobalRef(ref) => ref,
+    }
+    let b = match (b) {
+      FunctionRef(ref) => ref,
+      TypeRef(ref) => ref,
+      GlobalRef(ref) => ref,
+    }
+    a - b
+  }, codeReferences)
   // Package
   {
     importIdentifier,
     functionOffsetGlobal,
-    functionReferences,
-    typeReferences,
-    globalReferences
+    codeReferences,
   }
 }
 export let decodeImportSection = (wasmSections) => {

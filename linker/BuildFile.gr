@@ -5,7 +5,7 @@ import Map from "map"
 import Int32 from "int32"
 import Bytes from "bytes"
 import Stream from "./Stream"
-import DecodeSection, { getTypeSection } from "./Decoder/DecodeSection"
+import DecodeSection, { getTypeSection, getFuncSection, getCodeSection } from "./Decoder/DecodeSection"
 import WasmDecoder from "./Decoder/WasmDecoder"
 import Encoder from "./encode"
 // Type Imports
@@ -57,7 +57,8 @@ export let createTypeSection = (wasmBinary, dependencyChain) => {
     Encoder.encodeUIntLeb128(typeCount)
   ) // Write Type Count
   // Append The Type Section To The WasmBinary
-  Buffer.addBuffer(typeSection, wasmBinary)
+  if (Buffer.length(typeSection) != 0)
+    Buffer.addBuffer(typeSection, wasmBinary)
   // Return The Buffer
   wasmBinary
 }
@@ -120,51 +121,149 @@ export let createImportSection = (wasmBinary, dependencyChain) => {
     Encoder.encodeUIntLeb128(importCount)
   ) // Write Import Count
   // Append The Import Section To The WasmBinary
-  Buffer.addBuffer(importSection, wasmBinary)
+  if (Buffer.length(importSection) != 0)
+    Buffer.addBuffer(importSection, wasmBinary)
   // Return The Buffer
   wasmBinary
 }
 export let createFuncSection = (wasmBinary, dependencyChain) => {
-  let mut functionCount = 0
-  let funcSection = Buffer.make(0)
+  let mut funcCount = 0
+  let mut funcSection = Buffer.make(0)
   // For Each Dependency
   List.forEach((dependency: DecodeFile.FileData) => {
+    // Get The Function Section
+    let funcStream = getFuncSection(dependency.wasmSections)
+    let functionCount = Stream.nextUIntLEB128(funcStream)
     // Map The Function Section
-    print(dependency)
-    // TODO: Replace All Type References
-  }, dependencyChain)
+    for (let mut i = 0; i < functionCount; i += 1) {
+      // Get The TypeRef
+      let typeRef = Stream.nextUIntLEB128(funcStream)
+      // Add The Offset
+      funcSection = appendBufferByteList(
+        funcSection,
+        Encoder.encodeUIntLeb128(typeRef + dependency.offsetData.typeOffset)
+      )
+      funcCount += 1
+    }
+  }, dependencyChain);
+  // TODO: Add An Additional Function For The New Entry Function
+  // Write The Section Header
+  let wasmBinary = appendBufferByte(wasmBinary, 0x03) // Write Section ID
+  let wasmBinary = appendBufferByteList(
+    wasmBinary,
+    Encoder.encodeUIntLeb128(Buffer.length(funcSection) + 1)
+  ) // Write Section Size
+  let wasmBinary = appendBufferByteList(
+    wasmBinary,
+    Encoder.encodeUIntLeb128(funcCount)
+  ) // Write Func Count
   // Append The Function Section To The WasmBinary
-  print("start")
-  Buffer.addBuffer(funcSection, wasmBinary)
-  print("end")
+  if (Buffer.length(funcSection) != 0)
+    Buffer.addBuffer(funcSection, wasmBinary)
   // Return The Buffer
   wasmBinary
 }
 export let createTableSection = (wasmBinary, dependencyChain) => {
-  void
+  // Return The Buffer
+  wasmBinary
 }
 export let createMemorySection = (wasmBinary, dependencyChain) => {
-  void
+  // Return The Buffer
+  wasmBinary
 }
 export let createGlobalSection = (wasmBinary, dependencyChain) => {
-  void
+  // Return The Buffer
+  wasmBinary
 }
 export let createExportSection = (wasmBinary, dependencyChain) => {
-  void
+  // Return The Buffer
+  wasmBinary
 }
 export let createStartSection = (wasmBinary, dependencyChain) => {
-  void
+  // TODO: Set The Start Function To The Last Function As The Last Function is our new entry point
+  // Return The Buffer
+  wasmBinary
 }
 export let createElementSection = (wasmBinary, dependencyChain) => {
-  void
+  // Return The Buffer
+  wasmBinary
 }
 export let createCodeSection = (wasmBinary, dependencyChain) => {
-  void
+  let mut codeCount = 0
+  let codeSection = Buffer.make(0)
+  // For Each Dependency
+  List.forEach((dependency: DecodeFile.FileData) => {
+    // Get The CodeStream
+    let codeStream = getCodeSection(dependency.wasmSections)
+    // Decode The Header
+    codeCount += Stream.nextUIntLEB128(codeStream)
+    // Remap The Code Section Based On the Offsets
+    let mut lastRef = 0
+    List.forEach((ref) => {
+      // Get The Reference Position
+      let (refPosition, refOffset, refImportOffset, refImportCount) = match (ref) {
+        DecodeSection.FunctionRef(ref) => {
+          (
+            ref,
+            dependency.offsetData.functionOffset,
+            dependency.offsetData.importFunctionOffset,
+            dependency.offsetData.importFunctionCount
+          )
+        },
+        DecodeSection.TypeRef(ref) => {
+          (
+            ref,
+            dependency.offsetData.typeOffset,
+            0,
+            0
+          )
+        },
+        DecodeSection.GlobalRef(ref) => {
+          (
+            ref,
+            dependency.offsetData.globalOffset,
+            dependency.offsetData.importGlobalOffset,
+            dependency.offsetData.importGlobalCount
+          )
+        },
+      }
+      // Write The Stream Between The Last Reference
+      // TODO: length needs to be subtract the length of the nextUIntlEB128
+      Buffer.addBytes(Stream.nextSliceBytes(codeStream, refPosition-lastRef), codeSection)
+      // Get The Reference Value
+      let streamPosition = codeStream.position
+      let refValue = Stream.nextUIntLEB128(codeStream)
+      codeStream.position = streamPosition
+      print(refValue)
+      // TODO: Write The Reference
+      // Set The Last Ref
+      lastRef = refPosition
+    }, dependency.codeReferences)
+    // TODO: Write The Remaining Amount Of The Stream
+    Buffer.addBytes(Stream.nextSliceBytes(codeStream, Stream.remainingLength(codeStream)), codeSection)
+  }, dependencyChain)
+  // TODO: Add An Additional Function For The New Entry Function
+  // Write The Section Header
+  let wasmBinary = appendBufferByte(wasmBinary, 0x0a) // Write Section ID
+  let wasmBinary = appendBufferByteList(
+    wasmBinary,
+    Encoder.encodeUIntLeb128(Buffer.length(codeSection) + 1)
+  ) // Write Section Size
+  let wasmBinary = appendBufferByteList(
+    wasmBinary,
+    Encoder.encodeUIntLeb128(codeCount)
+  ) // Write Code Count
+  // Append The Function Section To The WasmBinary
+  if (Buffer.length(codeSection) != 0)
+    Buffer.addBuffer(codeSection, wasmBinary)
+  // Return The Buffer
+  wasmBinary
 }
 export let createDataSection = (wasmBinary, dependencyChain) => {
   // Create Data Section
   // Create Data Count Section
-  void
+  // Return The Buffer
+  wasmBinary
 }
 // Build The File
 export let buildFile = dependencyChain => {
@@ -176,10 +275,18 @@ export let buildFile = dependencyChain => {
   // TODO: Create The Custom Sections
   // TODO: Remap The Name Section
   // TODO: Build A New Linking Info Sections
-  // TODO: Build Sections
+  // Build Sections
   let wasmBinary = createTypeSection(wasmBinary, dependencyChain)
   let wasmBinary = createImportSection(wasmBinary, dependencyChain)
   let wasmBinary = createFuncSection(wasmBinary, dependencyChain)
+  let wasmBinary = createTableSection(wasmBinary, dependencyChain)
+  let wasmBinary = createMemorySection(wasmBinary, dependencyChain)
+  let wasmBinary = createGlobalSection(wasmBinary, dependencyChain)
+  let wasmBinary = createExportSection(wasmBinary, dependencyChain)
+  let wasmBinary = createStartSection(wasmBinary, dependencyChain)
+  let wasmBinary = createElementSection(wasmBinary, dependencyChain)
+  let wasmBinary = createCodeSection(wasmBinary, dependencyChain)
+  let wasmBinary = createDataSection(wasmBinary, dependencyChain)
   // Return The File
   Buffer.toString(wasmBinary)
 }

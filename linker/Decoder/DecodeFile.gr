@@ -27,9 +27,8 @@ export record FileData {
   // Parsed Section Data
   wasmImports: List<WasmDecoder.WasmImport>,
   // References
-  functionReferences: List<Number>,
-  typeReferences: List<Number>,
-  globalReferences: List<Number>,
+  codeReferences: List<DecodeSection.CodeReference>,
+  // Dependencies
   mut dependencies: List<String>,
   // OffsetData
   mut offsetData: OffsetData,
@@ -72,9 +71,7 @@ export let decodeFile = wasmBinary => {
     wasmSections,
     wasmBinary,
     wasmImports: imports,
-    functionReferences: linkingInfo.functionReferences,
-    typeReferences: linkingInfo.typeReferences,
-    globalReferences: linkingInfo.globalReferences,
+    codeReferences: linkingInfo.codeReferences,
     dependencies: briskImports,
     offsetData: {
       // Normal Offsets
