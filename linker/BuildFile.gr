@@ -78,7 +78,8 @@ export let createImportSection = (wasmBinary, dependencyChain) => {
         let importModule = wasmImport.importModule
         let importName = wasmImport.importName
         let importDesc = wasmImport.importDescription
-        // TODO: Map The Actual Import
+        // Map The Actual Import
+        // TODO: Add To Offsets For Globals And Functions
         let importDesc = match (importDesc) {
           // typeDescription, typeRef
           WasmDecoder.FunctionImport(typeRef) => WasmDecoder.FunctionImport(typeOffset + typeRef),

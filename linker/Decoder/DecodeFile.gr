@@ -6,7 +6,17 @@ import DecodeSection, { decodeLinkingSection, decodeFile, decodeImportSection } 
 import WasmDecoder from "./WasmDecoder"
 // Types
 export record OffsetData {
+  // Normal Offsets
   mut typeOffset: Number,
+  mut globalOffset: Number,
+  mut functionOffset: Number,
+  mut functionTableOffset: Number,
+  // Import Counts
+  mut importGlobalCount: Number,
+  mut importFunctionCount: Number,
+  // Import Offsets
+  mut importGlobalOffset: Number,
+  mut importFunctionOffset: Number,
 }
 export record FileData {
   // Module Data
@@ -67,7 +77,17 @@ export let decodeFile = wasmBinary => {
     globalReferences: linkingInfo.globalReferences,
     dependencies: briskImports,
     offsetData: {
+      // Normal Offsets
       typeOffset: 0,
+      globalOffset: 0,
+      functionOffset: 0,
+      // Import Counts
+      importGlobalCount: 0,
+      importFunctionCount: 0,
+      // Import Offsets
+      functionTableOffset: 0,
+      importGlobalOffset: 0,
+      importFunctionOffset: 0,
     }
   }
 }
