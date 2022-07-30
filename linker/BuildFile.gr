@@ -5,7 +5,11 @@ import Map from "map"
 import Int32 from "int32"
 import Bytes from "bytes"
 import Stream from "./Stream"
-import DecodeSection, { getTypeSection, getFuncSection, getCodeSection } from "./Decoder/DecodeSection"
+import DecodeSection, {
+  getTypeSection,
+  getFuncSection,
+  getCodeSection,
+} from "./Decoder/DecodeSection"
 import WasmDecoder from "./Decoder/WasmDecoder"
 import Encoder from "./encode"
 // Type Imports
@@ -57,8 +61,7 @@ export let createTypeSection = (wasmBinary, dependencyChain) => {
     Encoder.encodeUIntLeb128(typeCount)
   ) // Write Type Count
   // Append The Type Section To The WasmBinary
-  if (Buffer.length(typeSection) != 0)
-    Buffer.addBuffer(typeSection, wasmBinary)
+  if (Buffer.length(typeSection) != 0) Buffer.addBuffer(typeSection, wasmBinary)
   // Return The Buffer
   wasmBinary
 }
@@ -73,7 +76,7 @@ export let createImportSection = (wasmBinary, dependencyChain) => {
     dependency.offsetData.importFunctionOffset = importFunctionOffset
     dependency.offsetData.importGlobalOffset = importGlobalOffset
     // Get Type Offset
-    let typeOffset = dependency.offsetData.typeOffset;
+    let typeOffset = dependency.offsetData.typeOffset
     // Map Each Import
     List.forEach((wasmImport: WasmDecoder.WasmImport) => {
       // TODO: Link Together Brisk Imports
@@ -108,7 +111,21 @@ export let createImportSection = (wasmBinary, dependencyChain) => {
         // Increment Import Count
         importCount += 1
       }
-    }, dependency.wasmImports)
+    }, dependency.wasmImports: List<
+      // TODO: Link Together Brisk Imports
+
+      // Get Import Properties
+
+      // Map The Actual Import
+      // TODO: We can only have one table import and one memory import so take the ones from the entryFile
+
+      // typeDescription, typeRef
+
+      // Rebuild The Import
+
+      // Increment Import Count
+      WasmDecoder.WasmImport
+    >)
   }, dependencyChain)
   // Build The Header
   let wasmBinary = appendBufferByte(wasmBinary, 0x02) // Write Section ID
@@ -145,7 +162,7 @@ export let createFuncSection = (wasmBinary, dependencyChain) => {
       )
       funcCount += 1
     }
-  }, dependencyChain);
+  }, dependencyChain)
   // TODO: Add An Additional Function For The New Entry Function
   // Write The Section Header
   let wasmBinary = appendBufferByte(wasmBinary, 0x03) // Write Section ID
@@ -158,8 +175,7 @@ export let createFuncSection = (wasmBinary, dependencyChain) => {
     Encoder.encodeUIntLeb128(funcCount)
   ) // Write Func Count
   // Append The Function Section To The WasmBinary
-  if (Buffer.length(funcSection) != 0)
-    Buffer.addBuffer(funcSection, wasmBinary)
+  if (Buffer.length(funcSection) != 0) Buffer.addBuffer(funcSection, wasmBinary)
   // Return The Buffer
   wasmBinary
 }
@@ -199,37 +215,37 @@ export let createCodeSection = (wasmBinary, dependencyChain) => {
     codeCount += Stream.nextUIntLEB128(codeStream)
     // Remap The Code Section Based On the Offsets
     let mut lastRef = 0
-    List.forEach((ref) => {
+    List.forEach(ref => {
       // Get The Reference Position
-      let (refPosition, refOffset, refImportOffset, refImportCount) = match (ref) {
+      let (
+        refPosition, refOffset, refImportOffset, refImportCount,
+      ) = match (ref) {
         DecodeSection.FunctionRef(ref) => {
           (
             ref,
             dependency.offsetData.functionOffset,
             dependency.offsetData.importFunctionOffset,
-            dependency.offsetData.importFunctionCount
+            dependency.offsetData.importFunctionCount,
           )
         },
         DecodeSection.TypeRef(ref) => {
-          (
-            ref,
-            dependency.offsetData.typeOffset,
-            0,
-            0
-          )
+          (ref, dependency.offsetData.typeOffset, 0, 0)
         },
         DecodeSection.GlobalRef(ref) => {
           (
             ref,
             dependency.offsetData.globalOffset,
             dependency.offsetData.importGlobalOffset,
-            dependency.offsetData.importGlobalCount
+            dependency.offsetData.importGlobalCount,
           )
         },
       }
       // Write The Stream Between The Last Reference
       // TODO: length needs to be subtract the length of the nextUIntlEB128
-      Buffer.addBytes(Stream.nextSliceBytes(codeStream, refPosition-lastRef), codeSection)
+      Buffer.addBytes(
+        Stream.nextSliceBytes(codeStream, refPosition - lastRef),
+        codeSection
+      )
       // Get The Reference Value
       let streamPosition = codeStream.position
       let refValue = Stream.nextUIntLEB128(codeStream)
@@ -240,7 +256,10 @@ export let createCodeSection = (wasmBinary, dependencyChain) => {
       lastRef = refPosition
     }, dependency.codeReferences)
     // TODO: Write The Remaining Amount Of The Stream
-    Buffer.addBytes(Stream.nextSliceBytes(codeStream, Stream.remainingLength(codeStream)), codeSection)
+    Buffer.addBytes(
+      Stream.nextSliceBytes(codeStream, Stream.remainingLength(codeStream)),
+      codeSection
+    )
   }, dependencyChain)
   // TODO: Add An Additional Function For The New Entry Function
   // Write The Section Header
@@ -254,8 +273,7 @@ export let createCodeSection = (wasmBinary, dependencyChain) => {
     Encoder.encodeUIntLeb128(codeCount)
   ) // Write Code Count
   // Append The Function Section To The WasmBinary
-  if (Buffer.length(codeSection) != 0)
-    Buffer.addBuffer(codeSection, wasmBinary)
+  if (Buffer.length(codeSection) != 0) Buffer.addBuffer(codeSection, wasmBinary)
   // Return The Buffer
   wasmBinary
 }
