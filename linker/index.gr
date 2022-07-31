@@ -35,6 +35,7 @@ export let link = (entryFile, fileReader, pathAbsolute) => {
       if (!Map.contains(filePath, dependencyGraph))
         Set.add(filePath, unparsedDependencies)
     }, fileData.dependencies)
+    break
   }
   // TODO: Sort The Dependency Graph
   let dependencyChain = Map.values(dependencyGraph)

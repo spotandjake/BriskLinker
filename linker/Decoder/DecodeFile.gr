@@ -27,7 +27,7 @@ export record FileData {
   // Parsed Section Data
   wasmImports: List<WasmDecoder.WasmImport>,
   // References
-  codeReferences: List<DecodeSection.CodeReference>,
+  codeReferences: List<List<DecodeSection.CodeReference>>,
   // Dependencies
   mut dependencies: List<String>,
   // OffsetData

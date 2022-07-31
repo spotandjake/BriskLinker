@@ -30,7 +30,7 @@ export record LinkingInfo {
   // The file functionOffsetGlobal Index
   functionOffsetGlobal: Number,
   // Code References
-  codeReferences: List<CodeReference>,
+  codeReferences: List<List<CodeReference>>,
 }
 // Getters
 export let getSectionStream = (wasmSection) => {
@@ -137,7 +137,16 @@ export let decodeFile = (wasmStream) => {
   List.reverse(sections)
 }
 // Get Refs
-let getRefs = (wasmStream) => List.init(Stream.nextUIntLEB128(wasmStream), (_) => Stream.nextUIntLEB128(wasmStream))
+let getRefs = (wasmStream, refType) => {
+  List.init(Stream.nextUIntLEB128(wasmStream), (_) => {
+    let ref = Stream.nextUIntLEB128(wasmStream)
+    match (refType) {
+      FunctionRef(_) => FunctionRef(ref),
+      TypeRef(_) => TypeRef(ref),
+      GlobalRef(_) => GlobalRef(ref),
+    }
+  })
+}
 // Decode Sections
 export let decodeLinkingSection = (wasmSections) => {
   // Get LinkingInfoStream
@@ -146,26 +155,31 @@ export let decodeLinkingSection = (wasmSections) => {
   let importIdentifier = Stream.nextString(linkingInfoStream)
   let functionOffsetGlobal = Stream.nextUIntLEB128(linkingInfoStream)
   // Get References
-  let codeReferences = []
-  let codeReferences = [ List.map((ref) => FunctionRef(ref), getRefs(linkingInfoStream)), ...codeReferences ]
-  let codeReferences = [ List.map((ref) => TypeRef(ref), getRefs(linkingInfoStream)), ...codeReferences ]
-  let codeReferences = [ List.map((ref) => GlobalRef(ref), getRefs(linkingInfoStream)), ...codeReferences ]
-  // Flatten List
-  let codeReferences = List.flatten(codeReferences)
-  // Sort CodeReferences
-  let codeReferences = List.sort((a, b) => {
-    let a = match (a) {
-      FunctionRef(ref) => ref,
-      TypeRef(ref) => ref,
-      GlobalRef(ref) => ref,
-    }
-    let b = match (b) {
-      FunctionRef(ref) => ref,
-      TypeRef(ref) => ref,
-      GlobalRef(ref) => ref,
-    }
-    a - b
-  }, codeReferences)
+  let mut codeReferences = []
+  let functionCount = Stream.nextUIntLEB128(linkingInfoStream)
+  for (let mut i = 0; i < functionCount; i += 1) {
+    let funcRefs = []
+    // Get References
+    let funcRefs = List.append(funcRefs, getRefs(linkingInfoStream, FunctionRef(0)))
+    let funcRefs = List.append(funcRefs, getRefs(linkingInfoStream, TypeRef(0)))
+    let funcRefs = List.append(funcRefs, getRefs(linkingInfoStream, GlobalRef(0)))
+    // Sort Function References
+    let funcRefs = List.sort((a, b) => {
+      let a = match (a) {
+        FunctionRef(ref) => ref,
+        TypeRef(ref) => ref,
+        GlobalRef(ref) => ref,
+      }
+      let b = match (b) {
+        FunctionRef(ref) => ref,
+        TypeRef(ref) => ref,
+        GlobalRef(ref) => ref,
+      }
+      a - b
+    }, funcRefs)
+    // Push to Code Refs
+    codeReferences = [funcRefs, ...codeReferences]
+  }
   // Package
   {
     importIdentifier,
