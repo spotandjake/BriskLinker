@@ -90,8 +90,8 @@ let linkBuild = (filePath, outputPath) => {
 
 // link The Build
 linkBuild(
-  "./TestCases/LinkerTest/Linker.br.wasm",
-  "./TestCases/LinkerTest/Linker_Linked.br.wasm"
+  "./LinkerTest/Linker.br.wasm",
+  "./LinkerTest/Linker_Linked.br.wasm"
 )
 // Imports
 // Imports

@@ -194,22 +194,25 @@ export let createCodeSection = (wasmBinary, dependencyChain) => {
   let mut codeCount = 0
   let mut codeSection = Buffer.make(0)
   // For Each Dependency
-  List.forEachi((dependency: DecodeFile.FileData, index) => {
+  List.forEach((dependency: DecodeFile.FileData) => {
+    print("===============")
     // Get The CodeStream
     let codeStream = getCodeSection(dependency.wasmSections)
     // Get The Function Count
     let functionCount = Stream.nextUIntLEB128(codeStream)
-    print(functionCount)
     for (let mut i = 0; i < functionCount; i += 1) {
       // For Each Reference
-      match (List.nth(index, dependency.codeReferences)) {
+      match (List.nth(i, dependency.codeReferences)) {
         Some(funcRefs) => {
           // Get The Function Size
-          let functionSize = Stream.nextUIntLEB128(codeStream)
+          let functionEnd = Stream.nextUIntLEB128(codeStream) +
+            codeStream.position
+          print(codeStream)
           // Create A Temporary Buffer
-          let funcBuffer = Buffer.make(0)
+          let mut funcBuffer = Buffer.make(0)
           // For Each Reference
-          List.forEach((ref) => {
+          let mut lastPosition = 0
+          List.forEach(ref => {
             // Get The Related Information
             let (
               refPosition, refOffset, refImportOffset, refImportCount,
@@ -234,47 +237,46 @@ export let createCodeSection = (wasmBinary, dependencyChain) => {
                 )
               },
             }
-            print(funcRefs)
-            print(refPosition)
             // Copy The Stuff Before The Reference
+            Buffer.addBytes(
+              Stream.nextSliceBytes(codeStream, refPosition - lastPosition),
+              funcBuffer
+            )
+            // Set The Last Position
+            lastPosition = refPosition
             // Write The Mapped Reference
+            print(ref)
+            let refValue = Stream.nextUIntLEB128(codeStream)
+            print(refValue)
+            let refValue = if (refValue < refImportCount) refValue + refOffset
+              else refValue +
+              refImportCount
+            funcBuffer = appendBufferByteList(
+              funcBuffer,
+              Encoder.encodeUIntLeb128(refValue)
+            )
           }, funcRefs)
+          print(Stream.remainingLength(codeStream))
           // Write The Remaining Stuff
+          Buffer.addBytes(
+            Stream.nextSliceBytes(
+              codeStream,
+              functionEnd - codeStream.position
+            ),
+            funcBuffer
+          )
+          // Write Function Header
+          let codeSection = appendBufferByteList(
+            codeSection,
+            Encoder.encodeUIntLeb128(Buffer.length(funcBuffer))
+          ) // Write Function Size
+          Buffer.addBuffer(funcBuffer, codeSection)
         },
-        None => fail "Could Not Find Related Linking Info"
+        None => fail "Could Not Find Related Linking Info",
       }
-      // TODO: Map The References
-      // TODO: Add To The Code Section
       // Increment The Code Count
       codeCount += 1
     }
-    // // Remap The Code Section Based On the Offsets
-    // List.forEach(ref => {
-    //   // Get The Reference Position
-    //   let (
-    //     refPosition, refOffset, refImportOffset, refImportCount,
-    //   ) = match (ref) {
-    //     DecodeSection.FunctionRef(ref) => {
-    //       (
-    //         ref,
-    //         dependency.offsetData.functionOffset,
-    //         dependency.offsetData.importFunctionOffset,
-    //         dependency.offsetData.importFunctionCount,
-    //       )
-    //     },
-    //     DecodeSection.TypeRef(ref) => {
-    //       (ref, dependency.offsetData.typeOffset, 0, 0)
-    //     },
-    //     DecodeSection.GlobalRef(ref) => {
-    //       (
-    //         ref,
-    //         dependency.offsetData.globalOffset,
-    //         dependency.offsetData.importGlobalOffset,
-    //         dependency.offsetData.importGlobalCount,
-    //       )
-    //     },
-    //   }
-    // }, dependency.codeReferences)
   }, dependencyChain)
   // TODO: Add An Additional Function For The New Entry Function
   // Write The Section Header

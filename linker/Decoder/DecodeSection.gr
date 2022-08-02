@@ -180,6 +180,8 @@ export let decodeLinkingSection = (wasmSections) => {
     // Push to Code Refs
     codeReferences = [funcRefs, ...codeReferences]
   }
+  // Reverse References
+  let codeReferences = List.reverse(codeReferences)
   // Package
   {
     importIdentifier,
