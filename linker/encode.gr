@@ -1,7 +1,5 @@
 import List from "list"
-import List from "list"
 import String from "string"
-import Char from "char"
 import WasmDecoder from "./Decoder/WasmDecoder"
 // Encoders
 // Encode Primitives
@@ -21,8 +19,7 @@ export let encodeUIntLeb128 = value => {
 }
 export let _encodeString = str => {
   List.init(String.length(str), index => {
-    // TODO: Switch To Using String.charCodeAt when #1376 lands
-    Char.code(String.charAt(index, str))
+    String.charCodeAt(index, str)
   })
 }
 export let encodeString = str => {

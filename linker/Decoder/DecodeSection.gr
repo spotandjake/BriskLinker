@@ -1,7 +1,10 @@
 // Imports
 import List from "list"
 import Stream from "../Stream"
-import WasmDecoder, { getWasmHeaderCount, decodeWasmImport } from "./WasmDecoder"
+import WasmDecoder, {
+  getWasmHeaderCount,
+  decodeWasmImport,
+} from "./WasmDecoder"
 // Types
 export enum WasmSection {
   // SectionType(Length, Body)
@@ -33,10 +36,9 @@ export record LinkingInfo {
   codeReferences: List<List<CodeReference>>,
 }
 // Getters
-export let getSectionStream = (wasmSection) => {
+export let getSectionStream = wasmSection => {
   match (wasmSection) {
-    CustomSection(_, stream) |
-    TypeSection(_, stream) |
+    CustomSection(_, stream) | TypeSection(_, stream) |
     ImportSection(_, stream) |
     FunctionSection(_, stream) |
     TableSection(_, stream) |
@@ -47,10 +49,11 @@ export let getSectionStream = (wasmSection) => {
     ElementSection(_, stream) |
     CodeSection(_, stream) |
     DataSection(_, stream) |
-    DataCountSection(_, stream) => stream
+    DataCountSection(_, stream) =>
+      stream,
   }
 }
-export let getTypeSection = (wasmSections) => {
+export let getTypeSection = wasmSections => {
   let typeSection = List.find(section => match (section) {
     TypeSection(_, _) => true,
     _ => false,
@@ -60,7 +63,7 @@ export let getTypeSection = (wasmSections) => {
     _ => Stream.empty(),
   }
 }
-export let getImportStream = (wasmSections) => {
+export let getImportStream = wasmSections => {
   let importSection = List.find(section => match (section) {
     ImportSection(_, _) => true,
     _ => false,
@@ -70,7 +73,7 @@ export let getImportStream = (wasmSections) => {
     _ => Stream.empty(),
   }
 }
-export let getFuncSection = (wasmSections) => {
+export let getFuncSection = wasmSections => {
   let funcSection = List.find(section => match (section) {
     FunctionSection(_, _) => true,
     _ => false,
@@ -80,7 +83,17 @@ export let getFuncSection = (wasmSections) => {
     _ => Stream.empty(),
   }
 }
-export let getCodeSection = (wasmSections) => {
+export let getGlobalSection = wasmSections => {
+  let globalSection = List.find(section => match (section) {
+    GlobalSection(_, _) => true,
+    _ => false,
+  }, wasmSections)
+  match (globalSection) {
+    Some(GlobalSection(_, stream)) => stream,
+    _ => Stream.empty(),
+  }
+}
+export let getCodeSection = wasmSections => {
   let codeSection = List.find(section => match (section) {
     CodeSection(_, _) => true,
     _ => false,
@@ -90,9 +103,10 @@ export let getCodeSection = (wasmSections) => {
     _ => Stream.empty(),
   }
 }
-export let getLinkingInfoStream = (wasmSections) => {
+export let getLinkingInfoStream = wasmSections => {
   let linkingSection = List.find(section => match (section) {
-    CustomSection(_, stream) when Stream.nextString(stream) == "LinkingInfo" => true,
+    CustomSection(_, stream) when Stream.nextString(stream) == "LinkingInfo" =>
+      true,
     _ => false,
   }, wasmSections)
   match (linkingSection) {
@@ -101,7 +115,7 @@ export let getLinkingInfoStream = (wasmSections) => {
   }
 }
 // Decoders
-export let decodeSection = (wasmStream) => {
+export let decodeSection = wasmStream => {
   // Get Section Id
   let sectionID = Stream.nextByte(wasmStream)
   // Get The Section Length
@@ -126,7 +140,7 @@ export let decodeSection = (wasmStream) => {
     _ => fail "Invalid Section",
   }
 }
-export let decodeFile = (wasmStream) => {
+export let decodeFile = wasmStream => {
   let mut sections = []
   while (Stream.remainingLength(wasmStream) > 0) {
     let section = decodeSection(wasmStream)
@@ -148,7 +162,7 @@ let getRefs = (wasmStream, refType) => {
   })
 }
 // Decode Sections
-export let decodeLinkingSection = (wasmSections) => {
+export let decodeLinkingSection = wasmSections => {
   // Get LinkingInfoStream
   let linkingInfoStream = getLinkingInfoStream(wasmSections)
   // Parse Linking Info Section
@@ -160,9 +174,15 @@ export let decodeLinkingSection = (wasmSections) => {
   for (let mut i = 0; i < functionCount; i += 1) {
     let funcRefs = []
     // Get References
-    let funcRefs = List.append(funcRefs, getRefs(linkingInfoStream, FunctionRef(0)))
+    let funcRefs = List.append(
+      funcRefs,
+      getRefs(linkingInfoStream, FunctionRef(0))
+    )
     let funcRefs = List.append(funcRefs, getRefs(linkingInfoStream, TypeRef(0)))
-    let funcRefs = List.append(funcRefs, getRefs(linkingInfoStream, GlobalRef(0)))
+    let funcRefs = List.append(
+      funcRefs,
+      getRefs(linkingInfoStream, GlobalRef(0))
+    )
     // Sort Function References
     let funcRefs = List.sort((a, b) => {
       let a = match (a) {
@@ -183,15 +203,11 @@ export let decodeLinkingSection = (wasmSections) => {
   // Reverse References
   let codeReferences = List.reverse(codeReferences)
   // Package
-  {
-    importIdentifier,
-    functionOffsetGlobal,
-    codeReferences,
-  }
+  { importIdentifier, functionOffsetGlobal, codeReferences }
 }
-export let decodeImportSection = (wasmSections) => {
+export let decodeImportSection = wasmSections => {
   // Find The Import Sections
-  let wasmStream = getImportStream(wasmSections);
+  let wasmStream = getImportStream(wasmSections)
   // Set The Stream Position To 0
   Stream.resetPointer(wasmStream)
   // Decode The Section Header

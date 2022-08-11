@@ -2,7 +2,6 @@
 import Bytes from "bytes"
 import File from "sys/file"
 import Result from "result"
-import Option from "option"
 import Int64 from "int64"
 import String from "string"
 import { link } from "./linker/index"
@@ -67,14 +66,14 @@ let pathAbsolute = (parentPath, filePath) => {
   // TODO: Develop A Nice Module For Handling File Paths
   // TODO: Replace this with something that works better
   // TODO: Normalize The File Path because currently this will not work well
+  let fileNamePos = match (String.indexOf("/", String.reverse(parentPath))) {
+    Some(pos) => pos,
+    None => 0,
+  }
   // Remove The File Name From The ParentPath
   let parentPath = String.slice(
     0,
-    String.length(parentPath) -
-    Option.unwrapWithDefault(
-      0,
-      String.indexOf("/", String.reverse(parentPath))
-    ),
+    String.length(parentPath) - fileNamePos,
     parentPath
   )
   // TODO: Resolve Path
@@ -89,10 +88,4 @@ let linkBuild = (filePath, outputPath) => {
 }
 
 // link The Build
-linkBuild(
-  "./LinkerTest/Linker.br.wasm",
-  "./LinkerTest/Linker_Linked.br.wasm"
-)
-// Imports
-// Imports
-// Imports
+linkBuild("./LinkerTest/Linker.br.wasm", "./LinkerTest/Linker_Linked.br.wasm")

@@ -14,3 +14,5 @@ if [ "$check" == "true" ]; then
 else
   wasm2wat ./LinkerTest/Linker_Linked.br.wasm -o ./LinkerTest/Linker_Linked.br.wat --verbose --no-check
 fi
+# Log The Size
+stat -f%z index.gr.wasm >> oldSize.txt

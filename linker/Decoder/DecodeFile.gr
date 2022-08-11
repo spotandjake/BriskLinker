@@ -2,13 +2,17 @@
 import List from "list"
 import String from "string"
 import Stream from "../Stream"
-import DecodeSection, { decodeLinkingSection, decodeFile, decodeImportSection } from "./DecodeSection"
+import Map from "map"
+import DecodeSection, {
+  decodeLinkingSection,
+  decodeFile,
+  decodeImportSection,
+} from "./DecodeSection"
 import WasmDecoder from "./WasmDecoder"
 // Types
 export record OffsetData {
   // Normal Offsets
   mut typeOffset: Number,
-  mut globalOffset: Number,
   mut functionOffset: Number,
   mut functionTableOffset: Number,
   // Import Counts
@@ -17,6 +21,10 @@ export record OffsetData {
   // Import Offsets
   mut importGlobalOffset: Number,
   mut importFunctionOffset: Number,
+  // Maps
+  globalMap: Map.Map<Number, Number>,
+  functionMap: Map.Map<Number, Number>,
+  typeMap: Map.Map<Number, Number>,
 }
 export record FileData {
   // Module Data
@@ -54,10 +62,14 @@ export let decodeFile = wasmBinary => {
   // Find Relevant Imports
   // TODO: I Should not need a type cast there, but the inferring seems to be broken
   let imports = List.map((importData: WasmDecoder.WasmImport) => {
-    importData.briskImport = String.startsWith(linkingInfo.importIdentifier, importData.importModule)
+    importData.briskImport = String.startsWith(
+      linkingInfo.importIdentifier,
+      importData.importModule
+    )
     importData
   }, imports)
-  let briskImports = List.filter((importData: WasmDecoder.WasmImport) => importData.briskImport, imports)
+  let briskImports = List.filter((importData: WasmDecoder.WasmImport) =>
+    importData.briskImport, imports)
   let briskImports = List.map((importData: WasmDecoder.WasmImport) => {
     String.slice(
       String.length(linkingInfo.importIdentifier),
@@ -76,7 +88,6 @@ export let decodeFile = wasmBinary => {
     offsetData: {
       // Normal Offsets
       typeOffset: 0,
-      globalOffset: 0,
       functionOffset: 0,
       // Import Counts
       importGlobalCount: 0,
@@ -85,6 +96,10 @@ export let decodeFile = wasmBinary => {
       functionTableOffset: 0,
       importGlobalOffset: 0,
       importFunctionOffset: 0,
-    }
+      // Maps
+      globalMap: Map.make(),
+      functionMap: Map.make(),
+      typeMap: Map.make(),
+    },
   }
 }
