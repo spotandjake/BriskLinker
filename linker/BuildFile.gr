@@ -8,6 +8,7 @@ import Stream from "./Stream"
 import DecodeSection, {
   getTypeSection,
   getFuncSection,
+  getTableSection,
   getGlobalSection,
   getCodeSection,
 } from "./Decoder/DecodeSection"
@@ -52,9 +53,6 @@ export let createTypeSection = (wasmBinary, dependencyChain, wasmData) => {
         Map.set(i, wasmData.typeCount, dependency.offsetData.typeMap)
         wasmData.typeCount += 1
       }
-      // Set The dependency's Type offset
-      // TODO: Remove This
-      dependency.offsetData.typeOffset = typeCount
       // Increment The Number Of Types
       typeCount += numberOfTypes
       // Append The Type Section To The New Type Section
@@ -82,17 +80,11 @@ export let createTypeSection = (wasmBinary, dependencyChain, wasmData) => {
 export let createImportSection = (wasmBinary, dependencyChain, wasmData) => {
   let mut importCount = 0
   let importSection = Buffer.make(0)
-  let mut importFunctionOffset = 0
-  let mut importGlobalOffset = 0
   // For Each Dependency
   List.forEach((dependency: DecodeFile.FileData) => {
     // Local Counts
     let mut localGlobalCount = 0
-    // Set Offsets
-    dependency.offsetData.importFunctionOffset = importFunctionOffset
-    dependency.offsetData.importGlobalOffset = importGlobalOffset
-    // Get Type Offset
-    let typeOffset = dependency.offsetData.typeOffset
+    let mut localFunctionCount = 0
     // Map Each Import
     List.forEach((wasmImport: WasmDecoder.WasmImport) => {
       // TODO: Link Together Brisk Imports
@@ -108,9 +100,18 @@ export let createImportSection = (wasmBinary, dependencyChain, wasmData) => {
         let importDesc = match (importDesc) {
           // typeDescription, typeRef
           WasmDecoder.FunctionImport(typeRef) => {
+            Map.set(
+              localFunctionCount,
+              wasmData.functionCount,
+              dependency.offsetData.functionMap
+            )
+            localFunctionCount += 1
+            wasmData.functionCount += 1
             dependency.offsetData.importFunctionCount += 1
-            importFunctionOffset += 1
-            WasmDecoder.FunctionImport(typeOffset + typeRef)
+            match (Map.get(typeRef, dependency.offsetData.typeMap)) {
+              Some(typeOffset) => WasmDecoder.FunctionImport(typeOffset),
+              None => fail "Impossible: Type Not Found",
+            }
           },
           WasmDecoder.GlobalImport(_, _) => {
             Map.set(
@@ -121,9 +122,6 @@ export let createImportSection = (wasmBinary, dependencyChain, wasmData) => {
             localGlobalCount += 1
             wasmData.globalCount += 1
             dependency.offsetData.importGlobalCount += 1
-            // TODO: Remove This
-            importGlobalOffset += 1
-
             importDesc
           },
           _ => importDesc,
@@ -164,14 +162,26 @@ export let createFuncSection = (wasmBinary, dependencyChain, wasmData) => {
     let functionCount = Stream.nextUIntLEB128(funcStream)
     // Map The Function Section
     for (let mut i = 0; i < functionCount; i += 1) {
+      // Write The Offset
+      Map.set(
+        i + dependency.offsetData.importFunctionCount,
+        wasmData.functionCount,
+        dependency.offsetData.functionMap
+      )
+      wasmData.functionCount += 1
       // Get The TypeRef
       let typeRef = Stream.nextUIntLEB128(funcStream)
       // Add The Offset
-      funcSection = appendBufferByteList(
-        funcSection,
-        Encoder.encodeUIntLeb128(typeRef + dependency.offsetData.typeOffset)
-      )
-      funcCount += 1
+      match (Map.get(typeRef, dependency.offsetData.typeMap)) {
+        Some(typeOffset) => {
+          funcSection = appendBufferByteList(
+            funcSection,
+            Encoder.encodeUIntLeb128(typeOffset)
+          )
+          funcCount += 1
+        },
+        None => fail "Impossible: Type Not Found",
+      }
     }
   }, dependencyChain)
   // TODO: Add An Additional Function For The New Entry Function
@@ -191,6 +201,25 @@ export let createFuncSection = (wasmBinary, dependencyChain, wasmData) => {
   wasmBinary
 }
 export let createTableSection = (wasmBinary, dependencyChain, wasmData) => {
+  // TODO: Once wasm supports multiple tables allocate a table per dependency
+  let mut initialTableSize = 0
+  List.forEach((dependency: DecodeFile.FileData) => {
+    let tableSection = getTableSection(dependency.wasmSections)
+    // Skip the tableCount, tableType, flagType until wasm has multiple tables
+    tableSection.position += 3
+    initialTableSize += Stream.nextByte(tableSection)
+  }, dependencyChain)
+  // Write The Table Section
+  // TODO: This might need to change if the initialTable size overflows one byte then i think we need to account for it in sectionSize
+  let wasmBinary = appendBufferByte(wasmBinary, 0x04) // Write Section ID
+  let wasmBinary = appendBufferByteList(wasmBinary, Encoder.encodeUIntLeb128(4))
+  let wasmBinary = appendBufferByteList(wasmBinary, Encoder.encodeUIntLeb128(1))
+  let wasmBinary = appendBufferByte(wasmBinary, 0x70) // Write Table Type
+  let wasmBinary = appendBufferByte(wasmBinary, 0x00) // Write Flag Type
+  let wasmBinary = appendBufferByteList(
+    wasmBinary,
+    Encoder.encodeUIntLeb128(initialTableSize)
+  )
   // Return The Buffer
   wasmBinary
 }
@@ -207,7 +236,6 @@ export let createGlobalSection = (wasmBinary, dependencyChain, wasmData) => {
     let globalStream = getGlobalSection(dependency.wasmSections)
     // Get The Global Count
     let localGlobalCount = Stream.nextUIntLEB128(globalStream)
-    // TODO: Dont Use A GlobalCount Like This
     globalCount += localGlobalCount
     // Map The Offsets
     for (let mut i = 0; i < localGlobalCount; i += 1) {
@@ -227,6 +255,7 @@ export let createGlobalSection = (wasmBinary, dependencyChain, wasmData) => {
   }, dependencyChain)
   // Write The Header
   let wasmBinary = appendBufferByte(wasmBinary, 0x06) // Write Section ID
+  // TODO: I think we need to fix this to account for globalCount
   let wasmBinary = appendBufferByteList(
     wasmBinary,
     Encoder.encodeUIntLeb128(Buffer.length(globalSection) + 1)
@@ -276,25 +305,10 @@ export let createCodeSection = (wasmBinary, dependencyChain, wasmData) => {
           let mut lastPosition = 0
           List.forEach(ref => {
             // Get The Related Information
-            let (
-              refPosition, refOffset, refImportOffset, refImportCount,
-            ) = match (ref) {
-              DecodeSection.FunctionRef(ref) => {
-                (
-                  ref,
-                  dependency.offsetData.functionOffset,
-                  dependency.offsetData.importFunctionOffset,
-                  dependency.offsetData.importFunctionCount,
-                )
-              },
-              // TODO: Remove This
-              DecodeSection.TypeRef(ref) => {
-                (ref, 0, 0, 0)
-              },
-              // TODO: Remove This
-              DecodeSection.GlobalRef(ref) => {
-                (ref, 0, 0, 0)
-              },
+            let refPosition = match (ref) {
+              DecodeSection.FunctionRef(ref) | DecodeSection.TypeRef(ref) |
+              DecodeSection.GlobalRef(ref) =>
+                ref,
             }
             // Copy The Stuff Before The Reference
             Buffer.addBytes(
@@ -305,7 +319,6 @@ export let createCodeSection = (wasmBinary, dependencyChain, wasmData) => {
             lastPosition = refPosition + 1
             // Write The Mapped Reference
             let mut refValue = Stream.nextUIntLEB128(codeStream)
-            // TODO: Make This Better
             let refValue = match (ref) {
               DecodeSection.TypeRef(_) => {
                 match (Map.get(refValue, dependency.offsetData.typeMap)) {
@@ -319,10 +332,13 @@ export let createCodeSection = (wasmBinary, dependencyChain, wasmData) => {
                   None => fail "Impossible Global Not Found",
                 }
               },
-              _ =>
-                refValue +
-                (if (refValue >= refImportCount) refOffset
-                  else refImportOffset),
+              // TODO: Switch this to use maps
+              DecodeSection.FunctionRef(_) => {
+                match (Map.get(refValue, dependency.offsetData.functionMap)) {
+                  Some(refValue) => refValue,
+                  None => fail "Impossible Global Not Found",
+                }
+              },
             }
             funcBuffer = appendBufferByteList(
               funcBuffer,

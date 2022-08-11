@@ -83,6 +83,16 @@ export let getFuncSection = wasmSections => {
     _ => Stream.empty(),
   }
 }
+export let getTableSection = wasmSections => {
+  let tableSection = List.find(section => match (section) {
+    TableSection(_, _) => true,
+    _ => false,
+  }, wasmSections)
+  match (tableSection) {
+    Some(TableSection(_, stream)) => stream,
+    _ => Stream.empty(),
+  }
+}
 export let getGlobalSection = wasmSections => {
   let globalSection = List.find(section => match (section) {
     GlobalSection(_, _) => true,
