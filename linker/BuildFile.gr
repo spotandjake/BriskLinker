@@ -103,7 +103,7 @@ export let createImportSection = (wasmBinary, dependencyChain, wasmData) => {
             Map.set(
               localFunctionCount,
               wasmData.functionCount,
-              dependency.offsetData.functionMap
+              dependency.offsetData.funcMap
             )
             localFunctionCount += 1
             wasmData.functionCount += 1
@@ -166,7 +166,7 @@ export let createFuncSection = (wasmBinary, dependencyChain, wasmData) => {
       Map.set(
         i + dependency.offsetData.importFunctionCount,
         wasmData.functionCount,
-        dependency.offsetData.functionMap
+        dependency.offsetData.funcMap
       )
       wasmData.functionCount += 1
       // Get The TypeRef
@@ -305,10 +305,11 @@ export let createCodeSection = (wasmBinary, dependencyChain, wasmData) => {
           let mut lastPosition = 0
           List.forEach(ref => {
             // Get The Related Information
-            let refPosition = match (ref) {
-              DecodeSection.FunctionRef(ref) | DecodeSection.TypeRef(ref) |
-              DecodeSection.GlobalRef(ref) =>
-                ref,
+            let offsetData = dependency.offsetData
+            let (refPosition, offsetMap) = match (ref) {
+              DecodeSection.FuncRef(r) => (r, offsetData.funcMap),
+              DecodeSection.TypeRef(r) => (r, offsetData.typeMap),
+              DecodeSection.GlobalRef(r) => (r, offsetData.globalMap),
             }
             // Copy The Stuff Before The Reference
             Buffer.addBytes(
@@ -319,26 +320,9 @@ export let createCodeSection = (wasmBinary, dependencyChain, wasmData) => {
             lastPosition = refPosition + 1
             // Write The Mapped Reference
             let mut refValue = Stream.nextUIntLEB128(codeStream)
-            let refValue = match (ref) {
-              DecodeSection.TypeRef(_) => {
-                match (Map.get(refValue, dependency.offsetData.typeMap)) {
-                  Some(refValue) => refValue,
-                  None => fail "Impossible Type Not Found",
-                }
-              },
-              DecodeSection.GlobalRef(_) => {
-                match (Map.get(refValue, dependency.offsetData.globalMap)) {
-                  Some(refValue) => refValue,
-                  None => fail "Impossible Global Not Found",
-                }
-              },
-              // TODO: Switch this to use maps
-              DecodeSection.FunctionRef(_) => {
-                match (Map.get(refValue, dependency.offsetData.functionMap)) {
-                  Some(refValue) => refValue,
-                  None => fail "Impossible Global Not Found",
-                }
-              },
+            let refValue = match (Map.get(refValue, offsetMap)) {
+              Some(refValue) => refValue,
+              None => fail "Impossible: Reference Not Found",
             }
             funcBuffer = appendBufferByteList(
               funcBuffer,

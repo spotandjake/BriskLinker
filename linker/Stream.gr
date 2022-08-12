@@ -12,26 +12,19 @@ export record Stream {
 }
 // Functions
 export let empty = () => {
-  {
-    data: Bytes.empty,
-    position: 0,
-  }
+  { data: Bytes.empty, position: 0 }
 }
-// TODO: I want to use the name from
-export let fromBytes = (data) => {
+export let fromBytes = data => {
   // Create A New Stream
-  {
-    data,
-    position: 0,
-  }
+  { data, position: 0 }
 }
 // Get Information
-export let isEmpty = (stream) => {
+export let isEmpty = stream => {
   Bytes.length(stream.data) == 0
 }
 // Get The Next Element
 @unsafe
-export let nextByte = (stream) => {
+export let nextByte = stream => {
   // Get The Value
   let ptr = WasmI32.fromGrain(stream.data)
   let bytesOffset = WasmI32.add(ptr, 8n)
@@ -41,7 +34,7 @@ export let nextByte = (stream) => {
   // Return The Value
   WasmI32.toGrain(tagSimple(byte)): Number
 }
-export let nextUIntLEB128 = (stream) => {
+export let nextUIntLEB128 = stream => {
   let mut result = 0
   let mut shift = 0
   while (true) {
@@ -56,7 +49,7 @@ export let nextUIntLEB128 = (stream) => {
 // export let nextIntLEB128 = (stream) => {
 //   void
 // }
-export let nextString = (stream) => {
+export let nextString = stream => {
   // Get String Length
   let length = nextUIntLEB128(stream)
   // Get The String
@@ -81,13 +74,13 @@ export let nextStreamSlice = (stream, length) => {
   fromBytes(result)
 }
 export let nextSliceList = (stream, length) => {
-  List.init(length, (index) => nextByte(stream))
+  List.init(length, index => nextByte(stream))
 }
-export let remainingBytes = (stream) => {
+export let remainingBytes = stream => {
   Bytes.slice(stream.position, remainingLength(stream), stream.data)
 }
 // Reset
-export let resetPointer = (stream) => {
+export let resetPointer = stream => {
   stream.position = 0
   stream
 }

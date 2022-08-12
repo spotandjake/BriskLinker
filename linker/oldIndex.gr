@@ -8,7 +8,6 @@ import { buildFile } from "./BuildFile"
 export let link = (entryFile, fileReader, pathAbsolute) => {
   // Create Dependency Graph
   let dependencyGraph = Map.make()
-  let mut dependencyChain = []
   let mut unparsedDependencies = Stack.make()
   // Add Entry File To List
   unparsedDependencies = Stack.push(entryFile, unparsedDependencies)
@@ -28,7 +27,6 @@ export let link = (entryFile, fileReader, pathAbsolute) => {
         fileData.dependencies = List.map(filePath =>
           pathAbsolute(fileName, filePath), fileData.dependencies)
         // Add File To Dependency Graph
-        dependencyChain = [fileData, ...dependencyChain]
         Map.set(fileName, fileData, dependencyGraph)
         // Add The Dependencies To The unparsed Stack
         List.forEach(filePath => {
@@ -39,7 +37,7 @@ export let link = (entryFile, fileReader, pathAbsolute) => {
     }
   }
   // TODO: Sort The Dependency Graph
-  let dependencyChain = dependencyChain
+  let dependencyChain = Map.values(dependencyGraph)
   // Build The Linked File
   let wasmOutput = buildFile(dependencyChain)
   // Return The File

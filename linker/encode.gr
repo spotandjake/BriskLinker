@@ -5,17 +5,17 @@ import WasmDecoder from "./Decoder/WasmDecoder"
 // Encode Primitives
 export let encodeUIntLeb128 = value => {
   let mut value = value
-  let mut buffer = []
+  let mut buf = []
   while (true) {
     let mut byte = value & 0x7f
     value = value >>> 7
     if (value != 0) {
       byte = byte | 0x80
     }
-    buffer = [byte, ...buffer]
+    buf = [byte, ...buf]
     if (value == 0) break
   }
-  List.reverse(buffer)
+  List.reverse(buf)
 }
 export let _encodeString = str => {
   List.init(String.length(str), index => {

@@ -8,22 +8,22 @@ import WasmDecoder, {
 // Types
 export enum WasmSection {
   // SectionType(Length, Body)
-  CustomSection(Number, Stream.Stream),
-  TypeSection(Number, Stream.Stream),
-  ImportSection(Number, Stream.Stream),
-  FunctionSection(Number, Stream.Stream),
-  TableSection(Number, Stream.Stream),
-  MemorySection(Number, Stream.Stream),
-  GlobalSection(Number, Stream.Stream),
-  ExportSection(Number, Stream.Stream),
-  StartSection(Number, Stream.Stream),
-  ElementSection(Number, Stream.Stream),
-  CodeSection(Number, Stream.Stream),
-  DataSection(Number, Stream.Stream),
-  DataCountSection(Number, Stream.Stream),
+  CustomSection(Stream.Stream),
+  TypeSection(Stream.Stream),
+  ImportSection(Stream.Stream),
+  FunctionSection(Stream.Stream),
+  TableSection(Stream.Stream),
+  MemorySection(Stream.Stream),
+  GlobalSection(Stream.Stream),
+  ExportSection(Stream.Stream),
+  StartSection(Stream.Stream),
+  ElementSection(Stream.Stream),
+  CodeSection(Stream.Stream),
+  DataSection(Stream.Stream),
+  DataCountSection(Stream.Stream),
 }
 export enum CodeReference {
-  FunctionRef(Number),
+  FuncRef(Number),
   TypeRef(Number),
   GlobalRef(Number),
 }
@@ -36,91 +36,74 @@ export record LinkingInfo {
   codeReferences: List<List<CodeReference>>,
 }
 // Getters
-export let getSectionStream = wasmSection => {
-  match (wasmSection) {
-    CustomSection(_, stream) | TypeSection(_, stream) |
-    ImportSection(_, stream) |
-    FunctionSection(_, stream) |
-    TableSection(_, stream) |
-    MemorySection(_, stream) |
-    GlobalSection(_, stream) |
-    ExportSection(_, stream) |
-    StartSection(_, stream) |
-    ElementSection(_, stream) |
-    CodeSection(_, stream) |
-    DataSection(_, stream) |
-    DataCountSection(_, stream) =>
-      stream,
-  }
-}
 export let getTypeSection = wasmSections => {
   let typeSection = List.find(section => match (section) {
-    TypeSection(_, _) => true,
+    TypeSection(_) => true,
     _ => false,
   }, wasmSections)
   match (typeSection) {
-    Some(TypeSection(_, stream)) => stream,
+    Some(TypeSection(stream)) => stream,
     _ => Stream.empty(),
   }
 }
-export let getImportStream = wasmSections => {
+export let getImportSection = wasmSections => {
   let importSection = List.find(section => match (section) {
-    ImportSection(_, _) => true,
+    ImportSection(_) => true,
     _ => false,
   }, wasmSections)
   match (importSection) {
-    Some(ImportSection(_, stream)) => stream,
+    Some(ImportSection(stream)) => stream,
     _ => Stream.empty(),
   }
 }
 export let getFuncSection = wasmSections => {
   let funcSection = List.find(section => match (section) {
-    FunctionSection(_, _) => true,
+    FunctionSection(_) => true,
     _ => false,
   }, wasmSections)
   match (funcSection) {
-    Some(FunctionSection(_, stream)) => stream,
+    Some(FunctionSection(stream)) => stream,
     _ => Stream.empty(),
   }
 }
 export let getTableSection = wasmSections => {
   let tableSection = List.find(section => match (section) {
-    TableSection(_, _) => true,
+    TableSection(_) => true,
     _ => false,
   }, wasmSections)
   match (tableSection) {
-    Some(TableSection(_, stream)) => stream,
+    Some(TableSection(stream)) => stream,
     _ => Stream.empty(),
   }
 }
 export let getGlobalSection = wasmSections => {
   let globalSection = List.find(section => match (section) {
-    GlobalSection(_, _) => true,
+    GlobalSection(_) => true,
     _ => false,
   }, wasmSections)
   match (globalSection) {
-    Some(GlobalSection(_, stream)) => stream,
+    Some(GlobalSection(stream)) => stream,
     _ => Stream.empty(),
   }
 }
 export let getCodeSection = wasmSections => {
   let codeSection = List.find(section => match (section) {
-    CodeSection(_, _) => true,
+    CodeSection(_) => true,
     _ => false,
   }, wasmSections)
   match (codeSection) {
-    Some(CodeSection(_, stream)) => stream,
+    Some(CodeSection(stream)) => stream,
     _ => Stream.empty(),
   }
 }
 export let getLinkingInfoStream = wasmSections => {
   let linkingSection = List.find(section => match (section) {
-    CustomSection(_, stream) when Stream.nextString(stream) == "LinkingInfo" =>
+    CustomSection(stream) when Stream.nextString(stream) == "LinkingInfo" =>
       true,
     _ => false,
   }, wasmSections)
   match (linkingSection) {
-    Some(CustomSection(_, stream)) => stream,
+    Some(CustomSection(stream)) => stream,
     _ => fail "No Linking Info Section Could Be Found",
   }
 }
@@ -134,19 +117,19 @@ export let decodeSection = wasmStream => {
   let sectionContents = Stream.nextStreamSlice(wasmStream, sectionLength)
   // Match The Section Type
   match (sectionID) {
-    0x00 => CustomSection(sectionLength, sectionContents),
-    0x01 => TypeSection(sectionLength, sectionContents),
-    0x02 => ImportSection(sectionLength, sectionContents),
-    0x03 => FunctionSection(sectionLength, sectionContents),
-    0x04 => TableSection(sectionLength, sectionContents),
-    0x05 => MemorySection(sectionLength, sectionContents),
-    0x06 => GlobalSection(sectionLength, sectionContents),
-    0x07 => ExportSection(sectionLength, sectionContents),
-    0x08 => StartSection(sectionLength, sectionContents),
-    0x09 => ElementSection(sectionLength, sectionContents),
-    0x0a => CodeSection(sectionLength, sectionContents),
-    0x0b => DataSection(sectionLength, sectionContents),
-    0x0c => DataCountSection(sectionLength, sectionContents),
+    0x00 => CustomSection(sectionContents),
+    0x01 => TypeSection(sectionContents),
+    0x02 => ImportSection(sectionContents),
+    0x03 => FunctionSection(sectionContents),
+    0x04 => TableSection(sectionContents),
+    0x05 => MemorySection(sectionContents),
+    0x06 => GlobalSection(sectionContents),
+    0x07 => ExportSection(sectionContents),
+    0x08 => StartSection(sectionContents),
+    0x09 => ElementSection(sectionContents),
+    0x0a => CodeSection(sectionContents),
+    0x0b => DataSection(sectionContents),
+    0x0c => DataCountSection(sectionContents),
     _ => fail "Invalid Section",
   }
 }
@@ -165,9 +148,10 @@ let getRefs = (wasmStream, refType) => {
   List.init(Stream.nextUIntLEB128(wasmStream), (_) => {
     let ref = Stream.nextUIntLEB128(wasmStream)
     match (refType) {
-      FunctionRef(_) => FunctionRef(ref),
-      TypeRef(_) => TypeRef(ref),
-      GlobalRef(_) => GlobalRef(ref),
+      0x00 => FuncRef(ref),
+      0x01 => TypeRef(ref),
+      0x02 => GlobalRef(ref),
+      _ => fail "Invalid Reference Type",
     }
   })
 }
@@ -182,30 +166,15 @@ export let decodeLinkingSection = wasmSections => {
   let mut codeReferences = []
   let functionCount = Stream.nextUIntLEB128(linkingInfoStream)
   for (let mut i = 0; i < functionCount; i += 1) {
-    let funcRefs = []
     // Get References
-    let funcRefs = List.append(
-      funcRefs,
-      getRefs(linkingInfoStream, FunctionRef(0))
-    )
-    let funcRefs = List.append(funcRefs, getRefs(linkingInfoStream, TypeRef(0)))
-    let funcRefs = List.append(
-      funcRefs,
-      getRefs(linkingInfoStream, GlobalRef(0))
-    )
+    let funcRefs = getRefs(linkingInfoStream, 0x00)
+    let funcRefs = List.append(funcRefs, getRefs(linkingInfoStream, 0x01))
+    let funcRefs = List.append(funcRefs, getRefs(linkingInfoStream, 0x02))
     // Sort Function References
     let funcRefs = List.sort((a, b) => {
-      let a = match (a) {
-        FunctionRef(ref) => ref,
-        TypeRef(ref) => ref,
-        GlobalRef(ref) => ref,
-      }
-      let b = match (b) {
-        FunctionRef(ref) => ref,
-        TypeRef(ref) => ref,
-        GlobalRef(ref) => ref,
-      }
-      a - b
+      let getRef = r =>
+        match (r) { FuncRef(ref) | TypeRef(ref) | GlobalRef(ref) => ref }
+      getRef(a) - getRef(b)
     }, funcRefs)
     // Push to Code Refs
     codeReferences = [funcRefs, ...codeReferences]
@@ -217,7 +186,7 @@ export let decodeLinkingSection = wasmSections => {
 }
 export let decodeImportSection = wasmSections => {
   // Find The Import Sections
-  let wasmStream = getImportStream(wasmSections)
+  let wasmStream = getImportSection(wasmSections)
   // Set The Stream Position To 0
   Stream.resetPointer(wasmStream)
   // Decode The Section Header

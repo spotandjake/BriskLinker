@@ -18,7 +18,7 @@ export record OffsetData {
   mut importFunctionCount: Number,
   // Maps
   globalMap: Map.Map<Number, Number>,
-  functionMap: Map.Map<Number, Number>,
+  funcMap: Map.Map<Number, Number>,
   typeMap: Map.Map<Number, Number>,
 }
 export record FileData {
@@ -53,7 +53,6 @@ export let decodeFile = wasmBinary => {
   let linkingInfo = decodeLinkingSection(wasmSections)
   // Parse Import Section
   let imports = decodeImportSection(wasmSections)
-  // Parse Section Headers To Determine The Number Of Things Like Functions, Globals, Imports, Exports, And other important data
   // Find Relevant Imports
   // TODO: I Should not need a type cast there, but the inferring seems to be broken
   let imports = List.map((importData: WasmDecoder.WasmImport) => {
@@ -88,7 +87,7 @@ export let decodeFile = wasmBinary => {
       functionTableOffset: 0,
       // Maps
       globalMap: Map.make(),
-      functionMap: Map.make(),
+      funcMap: Map.make(),
       typeMap: Map.make(),
     },
   }

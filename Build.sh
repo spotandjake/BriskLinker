@@ -15,4 +15,6 @@ else
   wasm2wat ./LinkerTest/Linker_Linked.br.wasm -o ./LinkerTest/Linker_Linked.br.wat --verbose --no-check
 fi
 # Log The Size
-stat -f%z index.gr.wasm >> oldSize.txt
+filesize=$(stat -f%z index.gr.wasm)
+filesize=$(bc <<< "scale=3; $filesize / 1024")
+echo "$filesize"kb >> oldSize.txt
