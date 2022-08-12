@@ -4,6 +4,7 @@
   (type (;2;) (func (param i32) (result i32)))
   (type (;3;) (func (result i32)))
   (type (;4;) (func))
+  (type (;5;) (func))
   (import "env" "print" (func (;0;) (type 0)))
   (import "brisk:LinkingConstant" "$Brisk$Constant:moduleFunctionOffset" (global (;0;) i32))
   (import "$Brisk$./constants.br.wasm" "True0" (global (;1;) i32))
@@ -32,9 +33,14 @@
     i32.const 1
     i32.add
     local.set 0)
+  (func (;5;) (type 5)
+    call 2
+    call 4)
   (table (;0;) 3 funcref)
+  (memory (;0;) 2)
   (global (;2;) i32 (i32.const 0))
   (global (;3;) i32 (i32.const 0))
   (global (;4;) (mut i32) (i32.const 0))
   (global (;5;) i32 (i32.const 0))
-  (global (;6;) i32 (i32.const 0)))
+  (global (;6;) i32 (i32.const 0))
+  (start 5))

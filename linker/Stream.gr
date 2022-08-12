@@ -79,6 +79,10 @@ export let nextSliceList = (stream, length) => {
 export let remainingBytes = stream => {
   Bytes.slice(stream.position, remainingLength(stream), stream.data)
 }
+// Move The Position
+export let advance = (stream, length) => {
+  stream.position += length
+}
 // Reset
 export let resetPointer = stream => {
   stream.position = 0

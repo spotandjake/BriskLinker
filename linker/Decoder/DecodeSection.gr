@@ -76,6 +76,16 @@ export let getTableSection = wasmSections => {
     _ => Stream.empty(),
   }
 }
+export let getMemorySection = wasmSections => {
+  let memorySection = List.find(section => match (section) {
+    MemorySection(_) => true,
+    _ => false,
+  }, wasmSections)
+  match (memorySection) {
+    Some(MemorySection(stream)) => stream,
+    _ => Stream.empty(),
+  }
+}
 export let getGlobalSection = wasmSections => {
   let globalSection = List.find(section => match (section) {
     GlobalSection(_) => true,
@@ -83,6 +93,16 @@ export let getGlobalSection = wasmSections => {
   }, wasmSections)
   match (globalSection) {
     Some(GlobalSection(stream)) => stream,
+    _ => Stream.empty(),
+  }
+}
+export let getStartSection = wasmSections => {
+  let startSection = List.find(section => match (section) {
+    StartSection(_) => true,
+    _ => false,
+  }, wasmSections)
+  match (startSection) {
+    Some(StartSection(stream)) => stream,
     _ => Stream.empty(),
   }
 }

@@ -9,18 +9,35 @@ import DecodeSection, {
   getTypeSection,
   getFuncSection,
   getTableSection,
+  getMemorySection,
   getGlobalSection,
+  getStartSection,
   getCodeSection,
 } from "./Decoder/DecodeSection"
 import WasmDecoder from "./Decoder/WasmDecoder"
 import Encoder from "./encode"
 // Type Imports
 import DecodeFile from "./Decoder/DecodeFile"
+// WasmBinary Type
+record WasmBinary {
+  mut customSections: List<Buffer.Buffer>, // customSection[]
+  mut typeSection: List<(Number, Bytes)>, // (typeCount, typeContent)[]
+  mut importSection: List<Buffer.Buffer>, // import[]
+  mut funcSection: List<(Buffer.Buffer, Buffer.Buffer)
+  >, // (functionType, functionBody)[]
+  mut tableSection: List<Buffer.Buffer>, // table[]
+  mut memorySection: List<Buffer.Buffer>, // memory[]
+  mut globalSection: List<(Number, Bytes)>, // (globalCount, globalContent)[]
+  mut exportSection: List<Buffer.Buffer>, // export[]
+  mut startSection: Buffer.Buffer, // startFunction
+  mut elementSection: List<Buffer.Buffer>, // element[]
+  mut dataSection: List<Buffer.Buffer>, // dataSection[]
+}
 // Types
 record WasmData {
   mut globalCount: Number,
   mut typeCount: Number,
-  mut functionCount: Number,
+  mut funcCount: Number,
 }
 // Buffer Manipulation
 let appendBufferByte = (buffer, byte) => {
@@ -35,78 +52,50 @@ let appendBufferByteList = (buffer, byteList) => {
   }, byteList)
   buffer
 }
+let listToBuffer = byteList => appendBufferByteList(Buffer.make(0), byteList)
 // Create The Sections
 export let createTypeSection = (wasmBinary, dependencyChain, wasmData) => {
-  let mut typeCount = 0
-  let typeSection = Buffer.make(0)
-  // For Each Dependency
   List.forEach((dependency: DecodeFile.FileData) => {
     // Get The Type Section
     let typeStream = getTypeSection(dependency.wasmSections)
-    // Skip This Dependency If There Is Not A Type Section
-    if (!Stream.isEmpty(typeStream)) {
-      // Decode The Number Of Types
-      let numberOfTypes = Stream.nextUIntLEB128(typeStream)
-      // Map Types
-      for (let mut i = 0; i < numberOfTypes; i += 1) {
-        // Write The Offset
-        Map.set(i, wasmData.typeCount, dependency.offsetData.typeMap)
-        wasmData.typeCount += 1
-      }
-      // Increment The Number Of Types
-      typeCount += numberOfTypes
-      // Append The Type Section To The New Type Section
-      Buffer.addBytes(
-        Stream.nextSliceBytes(typeStream, Stream.remainingLength(typeStream)),
-        typeSection
-      )
+    // Split The Types
+    let depTypeCount = Stream.nextUIntLEB128(typeStream)
+    wasmBinary.typeSection = List.append(
+      [(depTypeCount, Stream.remainingBytes(typeStream))],
+      wasmBinary.typeSection
+    )
+    // Map The Types
+    for (let mut i = 0; i < depTypeCount; i += 1) {
+      // Write The Offset
+      Map.set(i, wasmData.typeCount, dependency.offsetData.typeMap)
+      wasmData.typeCount += 1
     }
   }, dependencyChain)
-  // Write The Section Header
-  let wasmBinary = appendBufferByte(wasmBinary, 0x01) // Write Section ID
-  let wasmBinary = appendBufferByteList(
-    wasmBinary,
-    Encoder.encodeUIntLeb128(Buffer.length(typeSection) + 1)
-  ) // Write Section Size
-  let wasmBinary = appendBufferByteList(
-    wasmBinary,
-    Encoder.encodeUIntLeb128(typeCount)
-  ) // Write Type Count
-  // Append The Type Section To The WasmBinary
-  if (Buffer.length(typeSection) != 0) Buffer.addBuffer(typeSection, wasmBinary)
-  // Return The Buffer
-  wasmBinary
 }
 export let createImportSection = (wasmBinary, dependencyChain, wasmData) => {
-  let mut importCount = 0
-  let importSection = Buffer.make(0)
-  // For Each Dependency
+  // TODO: Find a more compact format for this
   List.forEach((dependency: DecodeFile.FileData) => {
-    // Local Counts
-    let mut localGlobalCount = 0
+    // Create local Counts
     let mut localFunctionCount = 0
-    // Map Each Import
+    let mut localGlobalCount = 0
+    // For Each Import
     List.forEach((wasmImport: WasmDecoder.WasmImport) => {
-      // TODO: Link Together Brisk Imports
+      // TODO: Handle Linking Brisk Imports To Brisk Exports
       if (wasmImport.briskImport && false) {
         void
       } else {
-        // Get Import Properties
-        let importModule = wasmImport.importModule
-        let importName = wasmImport.importName
-        let importDesc = wasmImport.importDescription
         // Map The Actual Import
         // TODO: We can only have one table import and one memory import so take the ones from the entryFile
-        let importDesc = match (importDesc) {
-          // typeDescription, typeRef
+        let importDesc = match (wasmImport.importDescription) {
           WasmDecoder.FunctionImport(typeRef) => {
+            // Map The Value
             Map.set(
               localFunctionCount,
-              wasmData.functionCount,
+              wasmData.funcCount,
               dependency.offsetData.funcMap
             )
             localFunctionCount += 1
-            wasmData.functionCount += 1
+            wasmData.funcCount += 1
             dependency.offsetData.importFunctionCount += 1
             match (Map.get(typeRef, dependency.offsetData.typeMap)) {
               Some(typeOffset) => WasmDecoder.FunctionImport(typeOffset),
@@ -122,83 +111,101 @@ export let createImportSection = (wasmBinary, dependencyChain, wasmData) => {
             localGlobalCount += 1
             wasmData.globalCount += 1
             dependency.offsetData.importGlobalCount += 1
-            importDesc
+            wasmImport.importDescription
           },
-          _ => importDesc,
+          _ => wasmImport.importDescription,
         }
         // Rebuild The Import
-        appendBufferByteList(
-          importSection,
-          Encoder.encodeImport(importModule, importName, importDesc)
-        )
-        // Increment Import Count
-        importCount += 1
+        wasmBinary.importSection = [
+          listToBuffer(
+            Encoder.encodeImport(
+              wasmImport.importModule,
+              wasmImport.importName,
+              importDesc
+            )
+          ),
+          ...wasmBinary.importSection
+        ]
       }
-    }, dependency.wasmImports)
-  }, dependencyChain)
-  // Build The Header
-  let wasmBinary = appendBufferByte(wasmBinary, 0x02) // Write Section ID
-  let wasmBinary = appendBufferByteList(
-    wasmBinary,
-    Encoder.encodeUIntLeb128(Buffer.length(importSection) + 1)
-  ) // Write Section Size
-  let wasmBinary = appendBufferByteList(
-    wasmBinary,
-    Encoder.encodeUIntLeb128(importCount)
-  ) // Write Import Count
-  // Append The Import Section To The WasmBinary
-  if (Buffer.length(importSection) != 0)
-    Buffer.addBuffer(importSection, wasmBinary)
-  // Return The Buffer
-  wasmBinary
+    }, List.reverse(dependency.wasmImports))
+  }, List.reverse(dependencyChain))
 }
 export let createFuncSection = (wasmBinary, dependencyChain, wasmData) => {
-  let mut funcCount = 0
-  let mut funcSection = Buffer.make(0)
-  // For Each Dependency
   List.forEach((dependency: DecodeFile.FileData) => {
     // Get The Function Section
     let funcStream = getFuncSection(dependency.wasmSections)
-    let functionCount = Stream.nextUIntLEB128(funcStream)
-    // Map The Function Section
-    for (let mut i = 0; i < functionCount; i += 1) {
-      // Write The Offset
-      Map.set(
-        i + dependency.offsetData.importFunctionCount,
-        wasmData.functionCount,
-        dependency.offsetData.funcMap
-      )
-      wasmData.functionCount += 1
-      // Get The TypeRef
-      let typeRef = Stream.nextUIntLEB128(funcStream)
-      // Add The Offset
-      match (Map.get(typeRef, dependency.offsetData.typeMap)) {
+    let codeStream = getCodeSection(dependency.wasmSections)
+    // Get The Function Count
+    let funcCount = Stream.nextUIntLEB128(funcStream)
+    Stream.advance(codeStream, 1)
+    // For Each Function
+    let functions = List.init(funcCount, funcIndex => {
+      // Map The Function header
+      let funcSection = match (Map.get(
+        Stream.nextUIntLEB128(funcStream),
+        dependency.offsetData.typeMap
+      )) {
         Some(typeOffset) => {
-          funcSection = appendBufferByteList(
-            funcSection,
-            Encoder.encodeUIntLeb128(typeOffset)
-          )
-          funcCount += 1
+          listToBuffer(Encoder.encodeUIntLeb128(typeOffset))
         },
         None => fail "Impossible: Type Not Found",
       }
-    }
+      // Map The Function Index
+      Map.set(
+        funcIndex + dependency.offsetData.importFunctionCount,
+        wasmData.funcCount,
+        dependency.offsetData.funcMap
+      )
+      wasmData.funcCount += 1
+      // Get The Function Body
+      let funcBodySize = Stream.nextUIntLEB128(codeStream)
+      let funcBodyContent = Stream.nextStreamSlice(codeStream, funcBodySize)
+      let mut funcBody = Buffer.make(0)
+      // Map The Function Body
+      match (List.nth(funcIndex, dependency.codeReferences)) {
+        Some(codeRefs) => {
+          List.forEach(codeRef => {
+            // Get The Reference Data
+            let (refPosition, refMap) = match (codeRef) {
+              DecodeSection.FuncRef(pos) =>
+                (pos, dependency.offsetData.funcMap),
+              DecodeSection.TypeRef(pos) =>
+                (pos, dependency.offsetData.typeMap),
+              DecodeSection.GlobalRef(pos) =>
+                (pos, dependency.offsetData.globalMap),
+            }
+            // TODO: Write The Stuff Before The Reference
+            Buffer.addBytes(
+              Stream.nextSliceBytes(
+                funcBodyContent,
+                refPosition - funcBodyContent.position
+              ),
+              funcBody
+            )
+            // Write The Reference
+            let refValue = Stream.nextUIntLEB128(funcBodyContent)
+            let refValue = match (Map.get(refValue, refMap)) {
+              Some(value) => value,
+              None => fail "Impossible: Reference Not Found",
+            }
+            funcBody = appendBufferByteList(
+              funcBody,
+              Encoder.encodeUIntLeb128(refValue)
+            )
+          }, codeRefs)
+        },
+        None => fail "Impossible: Function Does Not Have Linking Info",
+      }
+      // Write The Remaining Stuff
+      Buffer.addBytes(Stream.remainingBytes(funcBodyContent), funcBody)
+      let codeBody = listToBuffer(Encoder.encodeUIntLeb128(funcBodySize))
+      Buffer.addBuffer(funcBody, codeBody)
+      // Return The Function Content
+      (funcSection, codeBody)
+    })
+    // Write The Function Data To The Binary
+    wasmBinary.funcSection = List.append(wasmBinary.funcSection, functions)
   }, dependencyChain)
-  // TODO: Add An Additional Function For The New Entry Function
-  // Write The Section Header
-  let wasmBinary = appendBufferByte(wasmBinary, 0x03) // Write Section ID
-  let wasmBinary = appendBufferByteList(
-    wasmBinary,
-    Encoder.encodeUIntLeb128(Buffer.length(funcSection) + 1)
-  ) // Write Section Size
-  let wasmBinary = appendBufferByteList(
-    wasmBinary,
-    Encoder.encodeUIntLeb128(funcCount)
-  ) // Write Func Count
-  // Append The Function Section To The WasmBinary
-  if (Buffer.length(funcSection) != 0) Buffer.addBuffer(funcSection, wasmBinary)
-  // Return The Buffer
-  wasmBinary
 }
 export let createTableSection = (wasmBinary, dependencyChain, wasmData) => {
   // TODO: Once wasm supports multiple tables allocate a table per dependency
@@ -206,39 +213,43 @@ export let createTableSection = (wasmBinary, dependencyChain, wasmData) => {
   List.forEach((dependency: DecodeFile.FileData) => {
     let tableSection = getTableSection(dependency.wasmSections)
     // Skip the tableCount, tableType, flagType until wasm has multiple tables
-    tableSection.position += 3
+    Stream.advance(tableSection, 3)
     initialTableSize += Stream.nextByte(tableSection)
   }, dependencyChain)
   // Write The Table Section
-  // TODO: This might need to change if the initialTable size overflows one byte then i think we need to account for it in sectionSize
-  let wasmBinary = appendBufferByte(wasmBinary, 0x04) // Write Section ID
-  let wasmBinary = appendBufferByteList(wasmBinary, Encoder.encodeUIntLeb128(4))
-  let wasmBinary = appendBufferByteList(wasmBinary, Encoder.encodeUIntLeb128(1))
-  let wasmBinary = appendBufferByte(wasmBinary, 0x70) // Write Table Type
-  let wasmBinary = appendBufferByte(wasmBinary, 0x00) // Write Flag Type
-  let wasmBinary = appendBufferByteList(
-    wasmBinary,
-    Encoder.encodeUIntLeb128(initialTableSize)
+  // tableType, flagType, initialCount
+  let table = listToBuffer(
+    [0x70, 0x00, ...Encoder.encodeUIntLeb128(initialTableSize)]
   )
-  // Return The Buffer
-  wasmBinary
+  wasmBinary.tableSection = [table, ...wasmBinary.tableSection]
 }
 export let createMemorySection = (wasmBinary, dependencyChain, wasmData) => {
-  // Return The Buffer
-  wasmBinary
+  // TODO: Once wasm supports multiple memories consider using a separate memory per dependency
+  let mut initialMemorySize = 0
+  List.forEach((dependency: DecodeFile.FileData) => {
+    let memorySection = getMemorySection(dependency.wasmSections)
+    // Skip the tableCount, flagType until wasm has multiple memories
+    Stream.advance(memorySection, 2)
+    initialMemorySize += Stream.nextByte(memorySection)
+  }, dependencyChain)
+  // Write The Table Section
+  wasmBinary.memorySection = [
+    listToBuffer([0x00, ...Encoder.encodeUIntLeb128(initialMemorySize)]),
+    ...wasmBinary.memorySection
+  ]
 }
 export let createGlobalSection = (wasmBinary, dependencyChain, wasmData) => {
-  let mut globalCount = 0
-  let mut globalSection = Buffer.make(0)
-  // For Each Dependency
   List.forEach((dependency: DecodeFile.FileData) => {
-    // Get The GlobalStream
+    // Get The Type Section
     let globalStream = getGlobalSection(dependency.wasmSections)
-    // Get The Global Count
-    let localGlobalCount = Stream.nextUIntLEB128(globalStream)
-    globalCount += localGlobalCount
-    // Map The Offsets
-    for (let mut i = 0; i < localGlobalCount; i += 1) {
+    // Split The Types
+    let depGlobalCount = Stream.nextUIntLEB128(globalStream)
+    wasmBinary.globalSection = [
+      (depGlobalCount, Stream.remainingBytes(globalStream)),
+      ...wasmBinary.globalSection
+    ]
+    // Map The Types
+    for (let mut i = 0; i < depGlobalCount; i += 1) {
       // Write The Offset
       Map.set(
         i + dependency.offsetData.importGlobalCount,
@@ -247,124 +258,72 @@ export let createGlobalSection = (wasmBinary, dependencyChain, wasmData) => {
       )
       wasmData.globalCount += 1
     }
-    // Write The Globals
-    Buffer.addBytes(
-      Stream.nextSliceBytes(globalStream, Stream.remainingLength(globalStream)),
-      globalSection
-    )
   }, dependencyChain)
-  // Write The Header
-  let wasmBinary = appendBufferByte(wasmBinary, 0x06) // Write Section ID
-  // TODO: I think we need to fix this to account for globalCount
-  let wasmBinary = appendBufferByteList(
-    wasmBinary,
-    Encoder.encodeUIntLeb128(Buffer.length(globalSection) + 1)
-  ) // Write Section Size
-  let wasmBinary = appendBufferByteList(
-    wasmBinary,
-    Encoder.encodeUIntLeb128(globalCount)
-  ) // Write Global Count
-  // Append The Global Section To The WasmBinary
-  if (Buffer.length(globalSection) != 0)
-    Buffer.addBuffer(globalSection, wasmBinary)
-  // Return The Buffer
-  wasmBinary
 }
 export let createExportSection = (wasmBinary, dependencyChain, wasmData) => {
   // Return The Buffer
   wasmBinary
 }
 export let createStartSection = (wasmBinary, dependencyChain, wasmData) => {
+  let mut startFunction = Buffer.make(0)
   // TODO: Set The Start Function To The Last Function As The Last Function is our new entry point
-  // Return The Buffer
-  wasmBinary
-}
-export let createElementSection = (wasmBinary, dependencyChain, wasmData) => {
-  // Return The Buffer
-  wasmBinary
-}
-export let createCodeSection = (wasmBinary, dependencyChain, wasmData) => {
-  let mut codeCount = 0
-  let mut codeSection = Buffer.make(0)
-  // For Each Dependency
   List.forEach((dependency: DecodeFile.FileData) => {
-    // Get The CodeStream
-    let codeStream = getCodeSection(dependency.wasmSections)
-    // Get The Function Count
-    let functionCount = Stream.nextUIntLEB128(codeStream)
-    for (let mut i = 0; i < functionCount; i += 1) {
-      // For Each Reference
-      match (List.nth(i, dependency.codeReferences)) {
-        Some(funcRefs) => {
-          // Get The Function Size
-          let functionEnd = Stream.nextUIntLEB128(codeStream) +
-            codeStream.position
-          // Create A Temporary Buffer
-          let mut funcBuffer = Buffer.make(0)
-          // For Each Reference
-          let mut lastPosition = 0
-          List.forEach(ref => {
-            // Get The Related Information
-            let offsetData = dependency.offsetData
-            let (refPosition, offsetMap) = match (ref) {
-              DecodeSection.FuncRef(r) => (r, offsetData.funcMap),
-              DecodeSection.TypeRef(r) => (r, offsetData.typeMap),
-              DecodeSection.GlobalRef(r) => (r, offsetData.globalMap),
-            }
-            // Copy The Stuff Before The Reference
-            Buffer.addBytes(
-              Stream.nextSliceBytes(codeStream, refPosition - lastPosition),
-              funcBuffer
-            )
-            // Set The Last Position
-            lastPosition = refPosition + 1
-            // Write The Mapped Reference
-            let mut refValue = Stream.nextUIntLEB128(codeStream)
-            let refValue = match (Map.get(refValue, offsetMap)) {
-              Some(refValue) => refValue,
-              None => fail "Impossible: Reference Not Found",
-            }
-            funcBuffer = appendBufferByteList(
-              funcBuffer,
-              Encoder.encodeUIntLeb128(refValue)
-            )
-          }, funcRefs)
-          if (Stream.remainingLength(codeStream) > 0) {
-            // Write The Remaining Stuff
-            Buffer.addBytes(
-              Stream.nextSliceBytes(
-                codeStream,
-                functionEnd - codeStream.position
-              ),
-              funcBuffer
-            )
-          }
-          // Write Function Header
-          let codeSection = appendBufferByteList(
-            codeSection,
-            Encoder.encodeUIntLeb128(Buffer.length(funcBuffer))
-          ) // Write Function Size
-          Buffer.addBuffer(funcBuffer, codeSection)
-        },
-        None => fail "Could Not Find Related Linking Info",
+    // Get The Start Section
+    let startStream = getStartSection(dependency.wasmSections)
+    // If There is no start section, skip
+    if (Stream.length(startStream) != 0) {
+      // Parse The Start Section
+      let startFunctionIndex = Stream.nextUIntLEB128(startStream)
+      // Map The Start Function
+      let startFunctionIndex = match (Map.get(
+        startFunctionIndex,
+        dependency.offsetData.funcMap
+      )) {
+        Some(funcIndex) => funcIndex,
+        None => fail "Impossible: Reference Not Found",
       }
-      // Increment The Code Count
-      codeCount += 1
+      // Append A Function Call To The New Start Function Body
+      startFunction = appendBufferByteList(
+        startFunction,
+        [0x10, ...Encoder.encodeUIntLeb128(startFunctionIndex)]
+      )
     }
   }, dependencyChain)
-  // TODO: Add An Additional Function For The New Entry Function
-  // Write The Section Header
-  let wasmBinary = appendBufferByte(wasmBinary, 0x0a) // Write Section ID
-  let wasmBinary = appendBufferByteList(
-    wasmBinary,
-    Encoder.encodeUIntLeb128(Buffer.length(codeSection) + 1)
-  ) // Write Section Size
-  let wasmBinary = appendBufferByteList(
-    wasmBinary,
-    Encoder.encodeUIntLeb128(codeCount)
-  ) // Write Code Count
-  // Append The Function Section To The WasmBinary
-  if (Buffer.length(codeSection) != 0) Buffer.addBuffer(codeSection, wasmBinary)
+  // Build The Start Function Type
+  let startFunctionType = listToBuffer([0x60, 0x00, 0x00])
+  // TODO: Clean This Up
+  wasmBinary.typeSection = [
+    (1, Buffer.toBytes(startFunctionType)),
+    ...wasmBinary.typeSection
+  ]
+  // Build The New Start Function
+  let startFunctionHeader = listToBuffer(
+    Encoder.encodeUIntLeb128(wasmData.typeCount)
+  )
+  let startFunctionBody = appendBufferByte(
+    Buffer.make(0),
+    0x00
+  ) // Local Count is 0
+  Buffer.addBuffer(startFunction, startFunctionBody)
+  let startFunctionBody = appendBufferByte(
+    startFunctionBody,
+    0x0b
+  ) // Push end instruction
+  let funcBody = listToBuffer(
+    Encoder.encodeUIntLeb128(Buffer.length(startFunctionBody))
+  )
+  Buffer.addBuffer(startFunctionBody, funcBody)
+  // Push The Start Function
+  wasmBinary.funcSection = List.append(
+    wasmBinary.funcSection,
+    [(startFunctionHeader, funcBody)]
+  )
+  // Push the Encoded Start Function Index
+  wasmBinary.startSection = listToBuffer(
+    Encoder.encodeUIntLeb128(wasmData.funcCount)
+  )
+}
+export let createElementSection = (wasmBinary, dependencyChain, wasmData) => {
   // Return The Buffer
   wasmBinary
 }
@@ -374,30 +333,135 @@ export let createDataSection = (wasmBinary, dependencyChain, wasmData) => {
   // Return The Buffer
   wasmBinary
 }
+// Rebuild WasmBinary
+export let buildBinary = wasmBinaryContent => {
+  // Helpers
+  let encodeSection = (sectionID, sectionContent) => {
+    let sectionBuffer = listToBuffer(
+      [sectionID, ...Encoder.encodeUIntLeb128(Buffer.length(sectionContent))]
+    )
+    Buffer.addBuffer(sectionContent, sectionBuffer)
+    sectionBuffer
+  }
+  let encodeSectionWithCount = (sectionID, count, sectionContent) => {
+    let wasmSection = listToBuffer(Encoder.encodeUIntLeb128(count))
+    Buffer.addBuffer(sectionContent, wasmSection)
+    encodeSection(sectionID, wasmSection)
+  }
+  // Build The Sections
+  // TODO: Build The Custom Sections
+  // Build The Type Section
+  let mut typeCount = 0
+  let typeSection = Buffer.make(0)
+  List.forEach(((depTypeCount, depTypeSection)) => {
+    Buffer.addBytes(depTypeSection, typeSection)
+    typeCount += depTypeCount
+  }, List.reverse(wasmBinaryContent.typeSection))
+  let typeSection = encodeSectionWithCount(0x01, typeCount, typeSection)
+  // Build The ImportSection
+  let importSection = Buffer.make(0)
+  List.forEach(depImport => {
+    Buffer.addBuffer(depImport, importSection)
+  }, wasmBinaryContent.importSection)
+  let importSection = encodeSectionWithCount(
+    0x02,
+    List.length(wasmBinaryContent.importSection),
+    importSection
+  )
+  // Build The Function Sections
+  let funcSection = Buffer.make(0)
+  let codeSection = Buffer.make(0)
+  let funcCount = List.length(wasmBinaryContent.funcSection)
+  List.forEach(((funcHeader, funcBody)) => {
+    Buffer.addBuffer(funcHeader, funcSection)
+    Buffer.addBuffer(funcBody, codeSection)
+  }, wasmBinaryContent.funcSection)
+  let funcSection = encodeSectionWithCount(0x03, funcCount, funcSection)
+  let codeSection = encodeSectionWithCount(0x0a, funcCount, codeSection)
+  // Build The Table Section
+  let tableSection = Buffer.make(0)
+  List.forEach(depImport => {
+    Buffer.addBuffer(depImport, tableSection)
+  }, wasmBinaryContent.tableSection)
+  let tableSection = encodeSectionWithCount(
+    0x04,
+    List.length(wasmBinaryContent.tableSection),
+    tableSection
+  )
+  // Build The Memory Section
+  let memorySection = Buffer.make(0)
+  List.forEach(depImport => {
+    Buffer.addBuffer(depImport, memorySection)
+  }, wasmBinaryContent.memorySection)
+  let memorySection = encodeSectionWithCount(
+    0x05,
+    List.length(wasmBinaryContent.memorySection),
+    memorySection
+  )
+  // Build The Global Section
+  let mut globalCount = 0
+  let globalSection = Buffer.make(0)
+  List.forEach(((depGlobalCount, depGlobalSection)) => {
+    Buffer.addBytes(depGlobalSection, globalSection)
+    globalCount += depGlobalCount
+  }, List.reverse(wasmBinaryContent.globalSection))
+  let globalSection = encodeSectionWithCount(0x06, globalCount, globalSection)
+  // TODO: Build The Export Section
+  // Build The Start Section
+  let startSection = encodeSection(0x08, wasmBinaryContent.startSection)
+  // TODO: Build The Element Section
+  // TODO: Build The Data Section
+  // TODO: Build The Data Count Section
+  // Create The Binary
+  let wasmBinary = Buffer.make(0)
+  let wasmBinary = appendBufferByteList(wasmBinary, [0x00, 0x61, 0x73, 0x6d])
+  let wasmBinary = appendBufferByteList(wasmBinary, [0x01, 0x00, 0x00, 0x00])
+  // TODO: Combine The Sections Into A Binary
+  Buffer.addBuffer(typeSection, wasmBinary)
+  Buffer.addBuffer(importSection, wasmBinary)
+  Buffer.addBuffer(funcSection, wasmBinary)
+  Buffer.addBuffer(tableSection, wasmBinary)
+  Buffer.addBuffer(memorySection, wasmBinary)
+  Buffer.addBuffer(globalSection, wasmBinary)
+  // let wasmBinary = createExportSection(wasmBinary, dependencyChain, wasmData)
+  Buffer.addBuffer(startSection, wasmBinary)
+  // let wasmBinary = createElementSection(wasmBinary, dependencyChain, wasmData)
+  Buffer.addBuffer(codeSection, wasmBinary)
+  // let wasmBinary = createDataSection(wasmBinary, dependencyChain, wasmData)
+  // Return The Binary
+  wasmBinary
+}
 // Build The File
 export let buildFile = dependencyChain => {
   // Create Wasm Data
-  let wasmData = { globalCount: 0, typeCount: 0, functionCount: 0 }
-  // Create The Buffer To Hold The File
-  let wasmBinary = Buffer.make(0)
-  // Add The Magic Wasm Headers
-  let wasmBinary = appendBufferByteList(wasmBinary, [0x00, 0x61, 0x73, 0x6d])
-  let wasmBinary = appendBufferByteList(wasmBinary, [0x01, 0x00, 0x00, 0x00])
-  // TODO: Create The Custom Sections
-  // TODO: Remap The Name Section
-  // TODO: Build A New Linking Info Sections
+  let wasmData = { globalCount: 0, typeCount: 0, funcCount: 0 }
+  // Create The Wasm Binary Content
+  let wasmBinaryContent = {
+    customSections: [],
+    typeSection: [],
+    importSection: [],
+    funcSection: [],
+    tableSection: [],
+    memorySection: [],
+    globalSection: [],
+    exportSection: [],
+    startSection: Buffer.make(0),
+    elementSection: [],
+    dataSection: [],
+  }
   // Build Sections
-  let wasmBinary = createTypeSection(wasmBinary, dependencyChain, wasmData)
-  let wasmBinary = createImportSection(wasmBinary, dependencyChain, wasmData)
-  let wasmBinary = createFuncSection(wasmBinary, dependencyChain, wasmData)
-  let wasmBinary = createTableSection(wasmBinary, dependencyChain, wasmData)
-  let wasmBinary = createMemorySection(wasmBinary, dependencyChain, wasmData)
-  let wasmBinary = createGlobalSection(wasmBinary, dependencyChain, wasmData)
-  let wasmBinary = createExportSection(wasmBinary, dependencyChain, wasmData)
-  let wasmBinary = createStartSection(wasmBinary, dependencyChain, wasmData)
-  let wasmBinary = createElementSection(wasmBinary, dependencyChain, wasmData)
-  let wasmBinary = createCodeSection(wasmBinary, dependencyChain, wasmData)
-  let wasmBinary = createDataSection(wasmBinary, dependencyChain, wasmData)
+  createTypeSection(wasmBinaryContent, dependencyChain, wasmData)
+  createImportSection(wasmBinaryContent, dependencyChain, wasmData)
+  createGlobalSection(wasmBinaryContent, dependencyChain, wasmData)
+  createFuncSection(wasmBinaryContent, dependencyChain, wasmData)
+  createTableSection(wasmBinaryContent, dependencyChain, wasmData)
+  createMemorySection(wasmBinaryContent, dependencyChain, wasmData)
+  // let wasmBinary = createExportSection(wasmBinary, dependencyChain, wasmData)
+  createStartSection(wasmBinaryContent, dependencyChain, wasmData)
+  // let wasmBinary = createElementSection(wasmBinary, dependencyChain, wasmData)
+  // let wasmBinary = createDataSection(wasmBinary, dependencyChain, wasmData)
+  // Build The Binary
+  let wasmBinary = buildBinary(wasmBinaryContent)
   // Return The File
   Buffer.toString(wasmBinary)
 }
