@@ -40,19 +40,15 @@ record WasmData {
   mut funcCount: Number,
 }
 // Buffer Manipulation
-let appendBufferByte = (buffer, byte) => {
+let appendBufferByte = (byte, buffer) =>
   Buffer.addInt8(Int32.fromNumber(byte), buffer)
+let appendBufferByteList = (byteList, buffer) =>
+  List.forEach(byte => appendBufferByte(byte, buffer), byteList)
+let listToBuffer = byteList => {
+  let buffer = Buffer.make(0)
+  appendBufferByteList(byteList, buffer)
   buffer
 }
-let appendBufferByteList = (buffer, byteList) => {
-  let mut buffer = buffer
-  List.forEach(byte => {
-    buffer = appendBufferByte(buffer, byte)
-    void
-  }, byteList)
-  buffer
-}
-let listToBuffer = byteList => appendBufferByteList(Buffer.make(0), byteList)
 // Create The Sections
 export let createTypeSection = (wasmBinary, dependencyChain, wasmData) => {
   List.forEach((dependency: DecodeFile.FileData) => {
@@ -160,7 +156,7 @@ export let createFuncSection = (wasmBinary, dependencyChain, wasmData) => {
       // Get The Function Body
       let funcBodySize = Stream.nextUIntLEB128(codeStream)
       let funcBodyContent = Stream.nextStreamSlice(codeStream, funcBodySize)
-      let mut funcBody = Buffer.make(0)
+      let funcBody = Buffer.make(0)
       // Map The Function Body
       match (List.nth(funcIndex, dependency.codeReferences)) {
         Some(codeRefs) => {
@@ -188,10 +184,7 @@ export let createFuncSection = (wasmBinary, dependencyChain, wasmData) => {
               Some(value) => value,
               None => fail "Impossible: Reference Not Found",
             }
-            funcBody = appendBufferByteList(
-              funcBody,
-              Encoder.encodeUIntLeb128(refValue)
-            )
+            appendBufferByteList(Encoder.encodeUIntLeb128(refValue), funcBody)
           }, codeRefs)
         },
         None => fail "Impossible: Function Does Not Have Linking Info",
@@ -265,7 +258,7 @@ export let createExportSection = (wasmBinary, dependencyChain, wasmData) => {
   wasmBinary
 }
 export let createStartSection = (wasmBinary, dependencyChain, wasmData) => {
-  let mut startFunction = Buffer.make(0)
+  let startFunc = Buffer.make(0)
   // TODO: Set The Start Function To The Last Function As The Last Function is our new entry point
   List.forEach((dependency: DecodeFile.FileData) => {
     // Get The Start Section
@@ -273,19 +266,19 @@ export let createStartSection = (wasmBinary, dependencyChain, wasmData) => {
     // If There is no start section, skip
     if (Stream.length(startStream) != 0) {
       // Parse The Start Section
-      let startFunctionIndex = Stream.nextUIntLEB128(startStream)
+      let startIndex = Stream.nextUIntLEB128(startStream)
       // Map The Start Function
-      let startFunctionIndex = match (Map.get(
-        startFunctionIndex,
+      let startIndex = match (Map.get(
+        startIndex,
         dependency.offsetData.funcMap
       )) {
         Some(funcIndex) => funcIndex,
         None => fail "Impossible: Reference Not Found",
       }
       // Append A Function Call To The New Start Function Body
-      startFunction = appendBufferByteList(
-        startFunction,
-        [0x10, ...Encoder.encodeUIntLeb128(startFunctionIndex)]
+      appendBufferByteList(
+        [0x10, ...Encoder.encodeUIntLeb128(startIndex)],
+        startFunc
       )
     }
   }, dependencyChain)
@@ -300,15 +293,10 @@ export let createStartSection = (wasmBinary, dependencyChain, wasmData) => {
   let startFunctionHeader = listToBuffer(
     Encoder.encodeUIntLeb128(wasmData.typeCount)
   )
-  let startFunctionBody = appendBufferByte(
-    Buffer.make(0),
-    0x00
-  ) // Local Count is 0
-  Buffer.addBuffer(startFunction, startFunctionBody)
-  let startFunctionBody = appendBufferByte(
-    startFunctionBody,
-    0x0b
-  ) // Push end instruction
+  let startFunctionBody = Buffer.make(0)
+  appendBufferByte(0x00, startFunctionBody) // Local Count is 0
+  Buffer.addBuffer(startFunc, startFunctionBody)
+  appendBufferByte(0x0b, startFunctionBody) // Push end instruction
   let funcBody = listToBuffer(
     Encoder.encodeUIntLeb128(Buffer.length(startFunctionBody))
   )
@@ -414,8 +402,8 @@ export let buildBinary = wasmBinaryContent => {
   // TODO: Build The Data Count Section
   // Create The Binary
   let wasmBinary = Buffer.make(0)
-  let wasmBinary = appendBufferByteList(wasmBinary, [0x00, 0x61, 0x73, 0x6d])
-  let wasmBinary = appendBufferByteList(wasmBinary, [0x01, 0x00, 0x00, 0x00])
+  appendBufferByteList([0x00, 0x61, 0x73, 0x6d], wasmBinary)
+  appendBufferByteList([0x01, 0x00, 0x00, 0x00], wasmBinary)
   // TODO: Combine The Sections Into A Binary
   Buffer.addBuffer(typeSection, wasmBinary)
   Buffer.addBuffer(importSection, wasmBinary)
