@@ -27,6 +27,8 @@ export let link = (entryFile, fileReader, pathAbsolute) => {
         // Convert Dependency File Paths From Relative To Absolute
         fileData.dependencies = List.map(filePath =>
           pathAbsolute(fileName, filePath), fileData.dependencies)
+        // Mark Entry File
+        if (fileName == entryFile) fileData.isEntry = true
         // Add File To Dependency Graph
         dependencyChain = [fileData, ...dependencyChain]
         Map.set(fileName, fileData, dependencyGraph)

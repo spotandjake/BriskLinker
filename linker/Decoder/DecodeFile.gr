@@ -24,6 +24,7 @@ export record OffsetData {
 export record FileData {
   // Module Data
   importIdentifier: String,
+  mut isEntry: Bool,
   // Raw Module
   wasmSections: List<DecodeSection.WasmSection>,
   wasmBinary: Bytes,
@@ -74,6 +75,7 @@ export let decodeFile = wasmBinary => {
   // Return A Result
   {
     importIdentifier: linkingInfo.importIdentifier,
+    isEntry: false,
     wasmSections,
     wasmBinary,
     wasmImports: imports,

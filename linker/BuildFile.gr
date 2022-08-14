@@ -20,6 +20,11 @@ import Encoder from "./encode"
 import DecodeFile from "./Decoder/DecodeFile"
 // WasmBinary Type
 record WasmBinary {
+  // Naming Data
+  mut moduleName: String,
+  mut funcNames: List<(Number, String)>,
+  mut localNames: List<(Number, Number, List<(Number, String)>)>,
+  // Section Data
   mut customSections: List<Buffer.Buffer>, // customSection[]
   mut typeSection: List<(Number, Bytes)>, // (typeCount, typeContent)[]
   mut importSection: List<Buffer.Buffer>, // import[]
@@ -50,6 +55,107 @@ let listToBuffer = byteList => {
   buffer
 }
 // Create The Sections
+export let createCustomSection = (wasmBinary, dependencyChain, wasmData) => {
+  List.forEachi((dependency: DecodeFile.FileData, index) => {
+    // Get The Custom Sections
+    List.forEach(wasmSection => {
+      match (wasmSection) {
+        DecodeSection.CustomSection(sectionContent) => {
+          Stream.resetPointer(sectionContent)
+          let sectionID = Stream.nextString(sectionContent)
+          if (sectionID == "name") {
+            // TODO: Use the filename or the module name from the file, need to handle duplicates
+            let mut moduleName = "module" ++ toString(index)
+            while (Stream.remainingLength(sectionContent) > 0) {
+              match (Stream.nextByte(sectionContent)) {
+                // Module Name Section
+                0x00 => {
+                  Stream.nextUIntLEB128(sectionContent) // get subSection Size
+                  let _moduleName = Stream.nextString(sectionContent)
+                  if (dependency.isEntry) wasmBinary.moduleName = _moduleName
+                  moduleName = _moduleName ++ toString(index)
+                },
+                // Function name Section
+                0x01 => {
+                  Stream.nextUIntLEB128(sectionContent) // get subSection Size
+                  let funcCount = Stream.nextUIntLEB128(sectionContent)
+                  for (let mut i = 0; i < funcCount; i += 1) {
+                    let funcIndex = Stream.nextUIntLEB128(sectionContent)
+                    let funcName = Stream.nextString(sectionContent)
+                    // Map Function Index
+                    let funcIndex = match (Map.get(
+                      funcIndex,
+                      dependency.offsetData.funcMap
+                    )) {
+                      Some(funcIndex) => funcIndex,
+                      None => fail "Impossible: Reference Not Found",
+                    }
+                    // Push To The New Name Section Info
+                    wasmBinary.funcNames = [
+                      (funcIndex, moduleName ++ "." ++ funcName),
+                      ...wasmBinary.funcNames
+                    ]
+                  }
+                  // TODO: Decode The Function Indices
+                  void
+                },
+                0x02 => {
+                  Stream.nextUIntLEB128(sectionContent) // get subSection Size
+                  let funcCount = Stream.nextUIntLEB128(sectionContent)
+                  let mut localNames = []
+                  for (let mut i = 0; i < funcCount; i += 1) {
+                    let funcIndex = Stream.nextUIntLEB128(sectionContent)
+                    let funcIndex = match (Map.get(
+                      funcIndex,
+                      dependency.offsetData.funcMap
+                    )) {
+                      Some(funcIndex) => funcIndex,
+                      None => fail "Impossible: Reference Not Found",
+                    }
+                    let localCount = Stream.nextUIntLEB128(sectionContent)
+                    let mut funcLocalNames = []
+                    for (let mut j = 0; j < localCount; j += 1) {
+                      let localIndex = Stream.nextUIntLEB128(sectionContent)
+                      let localName = Stream.nextString(sectionContent)
+                      funcLocalNames = [
+                        (localIndex, localName),
+                        ...funcLocalNames
+                      ]
+                    }
+                    localNames = [
+                      (funcIndex, localCount, funcLocalNames),
+                      ...localNames
+                    ]
+                  }
+                  wasmBinary.localNames = List.append(
+                    localNames,
+                    wasmBinary.localNames
+                  )
+                },
+                _ => break,
+              }
+            }
+          } else if (sectionID == "LinkingInfo") {
+            if (dependency.isEntry) {
+              // TODO: Rebuild The Linking Info Section
+              void
+            }
+          } else if (sectionID == "BriskModuleSignature") {
+            if (dependency.isEntry) {
+              // TODO: Rebuild The Module linking Signature
+              void
+            }
+          } else {
+            let buf = Buffer.make(0)
+            Buffer.addBytes(sectionContent.data, buf)
+            wasmBinary.customSections = [buf, ...wasmBinary.customSections]
+          }
+        },
+        _ => void,
+      }
+    }, dependency.wasmSections)
+  }, dependencyChain)
+}
 export let createTypeSection = (wasmBinary, dependencyChain, wasmData) => {
   List.forEach((dependency: DecodeFile.FileData) => {
     // Get The Type Section
@@ -307,6 +413,14 @@ export let createStartSection = (wasmBinary, dependencyChain, wasmData) => {
     [(startFunctionHeader, funcBody)]
   )
   // Push the Encoded Start Function Index
+  wasmBinary.funcNames = [
+    (wasmData.funcCount, "_start"),
+    ...wasmBinary.funcNames
+  ]
+  wasmBinary.localNames = [
+    (wasmData.funcCount, 0, []),
+    ...wasmBinary.localNames
+  ]
   wasmBinary.startSection = listToBuffer(
     Encoder.encodeUIntLeb128(wasmData.funcCount)
   )
@@ -337,7 +451,62 @@ export let buildBinary = wasmBinaryContent => {
     encodeSection(sectionID, wasmSection)
   }
   // Build The Sections
-  // TODO: Build The Custom Sections
+  // Build The Name Section
+  let nameSection = Buffer.make(0)
+  appendBufferByteList(Encoder.encodeString("name"), nameSection)
+  let moduleNameSubSection = Buffer.make(0)
+  appendBufferByteList(
+    Encoder.encodeString(wasmBinaryContent.moduleName),
+    moduleNameSubSection
+  )
+  let funcNameSubSection = Buffer.make(0)
+  appendBufferByteList(
+    Encoder.encodeUIntLeb128(List.length(wasmBinaryContent.funcNames)),
+    funcNameSubSection
+  )
+  List.forEach(((funcIndex, funcName)) => {
+    appendBufferByteList(
+      Encoder.encodeUIntLeb128(funcIndex),
+      funcNameSubSection
+    )
+    appendBufferByteList(Encoder.encodeString(funcName), funcNameSubSection)
+  }, List.sort(((a, _), (b, _)) => a - b, wasmBinaryContent.funcNames))
+  let localNameSubSection = Buffer.make(0)
+  appendBufferByteList(
+    Encoder.encodeUIntLeb128(List.length(wasmBinaryContent.localNames)),
+    localNameSubSection
+  )
+  List.forEach(((funcIndex, localCount, locals)) => {
+    appendBufferByteList(
+      Encoder.encodeUIntLeb128(funcIndex),
+      localNameSubSection
+    )
+    appendBufferByteList(
+      Encoder.encodeUIntLeb128(localCount),
+      localNameSubSection
+    )
+    List.forEach(((localIndex, localname)) => {
+      appendBufferByteList(
+        Encoder.encodeUIntLeb128(localIndex),
+        localNameSubSection
+      )
+      appendBufferByteList(
+        Encoder.encodeString(localname),
+        localNameSubSection
+      )
+    }, locals)
+  }, List.sort(((a, _, _), (b, _, _)) => a - b, wasmBinaryContent.localNames))
+  // TODO: Local Names SubSection
+  Buffer.addBuffer(encodeSection(0x00, moduleNameSubSection), nameSection)
+  Buffer.addBuffer(encodeSection(0x01, funcNameSubSection), nameSection)
+  Buffer.addBuffer(encodeSection(0x02, localNameSubSection), nameSection)
+  // TODO: Local Names SubSection
+  let nameSection = encodeSection(0x00, nameSection)
+  // Build The Custom Sections
+  let customSection = Buffer.make(0)
+  List.forEach(customStream => {
+    Buffer.addBuffer(encodeSection(0x00, customStream), customSection)
+  }, wasmBinaryContent.customSections)
   // Build The Type Section
   let mut typeCount = 0
   let typeSection = Buffer.make(0)
@@ -405,6 +574,7 @@ export let buildBinary = wasmBinaryContent => {
   appendBufferByteList([0x00, 0x61, 0x73, 0x6d], wasmBinary)
   appendBufferByteList([0x01, 0x00, 0x00, 0x00], wasmBinary)
   // TODO: Combine The Sections Into A Binary
+  Buffer.addBuffer(customSection, wasmBinary)
   Buffer.addBuffer(typeSection, wasmBinary)
   Buffer.addBuffer(importSection, wasmBinary)
   Buffer.addBuffer(funcSection, wasmBinary)
@@ -416,6 +586,7 @@ export let buildBinary = wasmBinaryContent => {
   // let wasmBinary = createElementSection(wasmBinary, dependencyChain, wasmData)
   Buffer.addBuffer(codeSection, wasmBinary)
   // let wasmBinary = createDataSection(wasmBinary, dependencyChain, wasmData)
+  Buffer.addBuffer(nameSection, wasmBinary)
   // Return The Binary
   wasmBinary
 }
@@ -425,6 +596,11 @@ export let buildFile = dependencyChain => {
   let wasmData = { globalCount: 0, typeCount: 0, funcCount: 0 }
   // Create The Wasm Binary Content
   let wasmBinaryContent = {
+    // Name Section Info
+    moduleName: "",
+    funcNames: [],
+    localNames: [],
+    // Section Data
     customSections: [],
     typeSection: [],
     importSection: [],
@@ -448,6 +624,7 @@ export let buildFile = dependencyChain => {
   createStartSection(wasmBinaryContent, dependencyChain, wasmData)
   // let wasmBinary = createElementSection(wasmBinary, dependencyChain, wasmData)
   // let wasmBinary = createDataSection(wasmBinary, dependencyChain, wasmData)
+  createCustomSection(wasmBinaryContent, dependencyChain, wasmData)
   // Build The Binary
   let wasmBinary = buildBinary(wasmBinaryContent)
   // Return The File
