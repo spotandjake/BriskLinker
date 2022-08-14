@@ -46,3 +46,14 @@ LinkingSection
   -> Type References
 # Section Layout
 The Linking Info Section Is A Custom Section With The Id Of LinkingInfo
+
+# Still TODO
++ [ ] Build Data Sections
++ [ ] Build Element Section
++ [ ] Build Export Section
++ [ ] Map Brisk Imports To Exports
++ [ ] Build Module Signature Section
+  + [ ] I think i might be able to use the Module Signature Section from the entry module
++ [ ] Build Linking Info Section
+  + [ ] Can almost just merge and order the Linking Info Sections from the incoming files
++ [ ] Get A Graph library and handle sorting dependencies
