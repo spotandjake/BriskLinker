@@ -1,2 +1,4 @@
 **/*.gr.wasm
 .DS_Store
+
+oldSize.txt
