@@ -476,7 +476,7 @@ export let buildBinary = wasmBinaryContent => {
     Encoder.encodeUIntLeb128(List.length(wasmBinaryContent.localNames)),
     localNameSubSection
   )
-  List.forEach((funcIndex, localCount, locals) => {
+  List.forEach(((funcIndex, localCount, locals)) => {
     appendBufferByteList(
       Encoder.encodeUIntLeb128(funcIndex),
       localNameSubSection
