@@ -16,11 +16,24 @@ export enum WasmImportDescription {
   // TODO: Memory Import
   GlobalImport(Bool, WasmType),
 }
+export enum ExternKind {
+  FuncKind,
+  TableKind,
+  MemoryKind,
+  GlobalKind,
+}
 export record WasmImport {
   importModule: String,
   importName: String,
+  importKind: ExternKind,
   mut briskImport: Bool,
   importDescription: WasmImportDescription,
+}
+export record WasmExport {
+  exportName: String,
+  exportKind: ExternKind,
+  mut briskExport: Bool,
+  exportIndex: Number,
 }
 // Functions
 export let decodeWasmType = stream => {
@@ -32,7 +45,7 @@ export let decodeWasmType = stream => {
     0x7e => WasmI64,
     0x7d => WasmF32,
     0x7c => WasmF64,
-    _ => fail "Invalid Wasm Type: " ++ toString(wasmType),
+    _ => fail "Invalid Wasm Type: ",
   }
 }
 export let decodeTypeReference = (wasmTypes, typeIndex) =>
@@ -40,7 +53,6 @@ export let decodeTypeReference = (wasmTypes, typeIndex) =>
     Some(wasmType) => wasmType,
     None => fail "Invalid Wasm Type Reference",
   }
-export let getWasmHeaderCount = wasmStream => Stream.nextUIntLEB128(wasmStream)
 export let decodeWasmImport = wasmStream => {
   // Get The Import Module
   let importModule = Stream.nextString(wasmStream)
@@ -49,12 +61,12 @@ export let decodeWasmImport = wasmStream => {
   // Get The Import Type
   let importKind = Stream.nextByte(wasmStream)
   // Decode Import Description
-  let importDescription = match (importKind) {
+  let (importKind, importDescription) = match (importKind) {
     // Function Import
     0x00 => {
       // Get The Function Type Index
       let functionIndex = Stream.nextUIntLEB128(wasmStream)
-      FunctionImport(functionIndex)
+      (FuncKind, FunctionImport(functionIndex))
     },
     // TODO: Table Import
     0x01 => fail "Table Import Not Yet Implemented",
@@ -67,10 +79,31 @@ export let decodeWasmImport = wasmStream => {
       // Get Global Mutability
       let globalMutable = Stream.nextByte(wasmStream) == 0x01
       // Return Description
-      GlobalImport(globalMutable, globalType)
+      (GlobalKind, GlobalImport(globalMutable, globalType))
     },
     _ => fail "Invalid Import Kind",
   }
   // Return Package
-  { importModule, importName, briskImport: false, importDescription }
+  {
+    importModule,
+    importName,
+    importKind,
+    briskImport: false,
+    importDescription,
+  }
+}
+export let decodeWasmExport = wasmStream => {
+  let exportName = Stream.nextString(wasmStream)
+  let exportKind = Stream.nextByte(wasmStream)
+  let exportIndex = Stream.nextUIntLEB128(wasmStream)
+  // Map the Export Kind
+  let exportKind = match (exportKind) {
+    0x00 => FuncKind,
+    0x01 => TableKind,
+    0x02 => MemoryKind,
+    0x03 => GlobalKind,
+    _ => fail "Invalid Export Kind",
+  }
+  // Return The Export
+  { exportName, exportKind, exportIndex, briskExport: false }
 }

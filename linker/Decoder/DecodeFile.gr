@@ -7,6 +7,7 @@ import DecodeSection, {
   decodeLinkingSection,
   decodeFile,
   decodeImportSection,
+  decodeExportSection,
 } from "./DecodeSection"
 import WasmDecoder from "./WasmDecoder"
 // Types
@@ -23,6 +24,7 @@ export record OffsetData {
 }
 export record FileData {
   // Module Data
+  modulePath: String,
   importIdentifier: String,
   mut isEntry: Bool,
   // Raw Module
@@ -30,15 +32,18 @@ export record FileData {
   wasmBinary: Bytes,
   // Parsed Section Data
   wasmImports: List<WasmDecoder.WasmImport>,
+  wasmExports: List<WasmDecoder.WasmExport>,
   // References
   codeReferences: List<List<DecodeSection.CodeReference>>,
   // Dependencies
-  mut dependencies: List<String>,
+  mut dependencies: Map.Map<String, String>,
   // OffsetData
   mut offsetData: OffsetData,
+  // Mapping Data
+  importGlobalMap: Map.Map<(String, String), Number>,
 }
 // Decodes A Wasm File
-export let decodeFile = wasmBinary => {
+export let decodeFile = (modulePath, wasmBinary) => {
   // Create Our Stream
   let stream = Stream.fromBytes(wasmBinary)
   // Ensure The File Is Valid
@@ -54,8 +59,16 @@ export let decodeFile = wasmBinary => {
   let linkingInfo = decodeLinkingSection(wasmSections)
   // Parse Import Section
   let imports = decodeImportSection(wasmSections)
+  // Parse The Export Section
+  let exports = decodeExportSection(wasmSections)
+  let exports = List.map((exportData: WasmDecoder.WasmExport) => {
+    exportData.briskExport = String.startsWith(
+      linkingInfo.importIdentifier,
+      exportData.exportName
+    )
+    exportData
+  }, exports)
   // Find Relevant Imports
-  // TODO: I Should not need a type cast there, but the inferring seems to be broken
   let imports = List.map((importData: WasmDecoder.WasmImport) => {
     importData.briskImport = String.startsWith(
       linkingInfo.importIdentifier,
@@ -65,22 +78,29 @@ export let decodeFile = wasmBinary => {
   }, imports)
   let briskImports = List.filter((importData: WasmDecoder.WasmImport) =>
     importData.briskImport, imports)
-  let briskImports = List.map((importData: WasmDecoder.WasmImport) => {
-    String.slice(
-      String.length(linkingInfo.importIdentifier),
-      String.length(importData.importModule),
-      importData.importModule
-    )
-  }, briskImports)
+  let dependencies = Map.fromList(
+    List.map((importData: WasmDecoder.WasmImport) => {
+      (
+        importData.importModule,
+        String.slice(
+          String.length(linkingInfo.importIdentifier),
+          String.length(importData.importModule),
+          importData.importModule
+        ),
+      )
+    }, briskImports)
+  )
   // Return A Result
   {
+    modulePath,
     importIdentifier: linkingInfo.importIdentifier,
     isEntry: false,
     wasmSections,
     wasmBinary,
     wasmImports: imports,
+    wasmExports: exports,
     codeReferences: linkingInfo.codeReferences,
-    dependencies: briskImports,
+    dependencies,
     offsetData: {
       // Import Counts
       importGlobalCount: 0,
@@ -92,5 +112,7 @@ export let decodeFile = wasmBinary => {
       funcMap: Map.make(),
       typeMap: Map.make(),
     },
+    // Import Mapping Data
+    importGlobalMap: Map.make(),
   }
 }

@@ -48,12 +48,15 @@ LinkingSection
 The Linking Info Section Is A Custom Section With The Id Of LinkingInfo
 
 # Still TODO
++ [ ] Build Export Section
+  + [ ] Only re-export the exports from main, but we do need to consider what todo with exports from other modules
++ [ ] Map Brisk Imports To Exports
++ [ ] Build Linking Info Section
+  + [ ] Can almost just merge and order the Linking Info Sections from the incoming files, we do need to order and map the refs
 + [ ] Build Data Sections
 + [ ] Build Element Section
-+ [ ] Build Export Section
-+ [ ] Map Brisk Imports To Exports
-+ [ ] Build Module Signature Section
-  + [ ] I think i might be able to use the Module Signature Section from the entry module
-+ [ ] Build Linking Info Section
-  + [ ] Can almost just merge and order the Linking Info Sections from the incoming files
+  + [x] Handle FuncRef ELements
+  + [ ] Handle Other Element Types
++ [ ] Get A Path Library so we can properly absolutePaths
 + [ ] Get A Graph library and handle sorting dependencies
++ [ ] Create a Program that can be used to take a binary without linking info and apply linking info, this is useful for linking with other languages that do not have native support for the brisk linking standard, issues with that still come with managing memory and cross language data types, this also allows for linking to generic wat programs

@@ -23,10 +23,11 @@ export let link = (entryFile, fileReader, pathAbsolute) => {
         // Read File
         let fileContents = fileReader(fileName)
         // Parse File
-        let fileData = decodeFile(fileContents)
+        let fileData = decodeFile(fileName, fileContents)
         // Convert Dependency File Paths From Relative To Absolute
-        fileData.dependencies = List.map(filePath =>
-          pathAbsolute(fileName, filePath), fileData.dependencies)
+        Map.forEach((filePath, path) => {
+          Map.set(filePath, pathAbsolute(fileName, path), fileData.dependencies)
+        }, fileData.dependencies)
         // Mark Entry File
         if (fileName == entryFile) fileData.isEntry = true
         // Add File To Dependency Graph
@@ -35,7 +36,7 @@ export let link = (entryFile, fileReader, pathAbsolute) => {
         // Add The Dependencies To The unparsed Stack
         List.forEach(filePath => {
           unparsedDependencies = Stack.push(filePath, unparsedDependencies)
-        }, fileData.dependencies)
+        }, Map.values(fileData.dependencies))
       },
       None => break,
     }

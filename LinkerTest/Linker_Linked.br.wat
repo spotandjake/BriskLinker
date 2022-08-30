@@ -1,46 +1,97 @@
-(module $./Resources/LinkerTest/Linker.br
-  (type (;0;) (func (param f32) (result i32)))
-  (type (;1;) (func))
+(module $./Resources/LinkTest/index.br
+  (type (;0;) (func (param i32 i32 i32 i32) (result i32)))
+  (type (;1;) (func (param i32 i32) (result i32)))
   (type (;2;) (func (param i32) (result i32)))
-  (type (;3;) (func (result i32)))
-  (type (;4;) (func))
+  (type (;3;) (func))
+  (type (;4;) (func (param i32) (result i32)))
   (type (;5;) (func))
-  (import "env" "print" (func $./Resources/LinkerTest/Linker.br1.print (type 0)))
-  (import "brisk:LinkingConstant" "$Brisk$Constant:moduleFunctionOffset" (global (;0;) i32))
-  (import "$Brisk$./constants.br.wasm" "True0" (global (;1;) i32))
-  (import "env" "print" (func $./constants.br0.print (type 2)))
-  (func $./constants.br0._start (type 1)
-    f32.const 0x1p+0 (;=1;)
-    global.get 3
-    call_indirect (type 0)
-    drop
+  (type (;6;) (func))
+  (import "wasi_snapshot_preview1" "fd_write" (func $./print32.br0.fd_write (type 0)))
+  (import "$Brisk$./print32.br.wasm" "$Brisk$print32" (global (;0;) i32))
+  (func $./print32.br0.writeCharacterCode (type 1) (param $pointer4 i32) (param $character5 i32) (result i32)
+    local.get $pointer4
+    local.get $character5
+    i32.store align=1
+    local.get $pointer4
     i32.const 1
-    global.set 4)
-  (func $./Resources/LinkerTest/Linker.br1.test (type 3) (result i32)
-    global.get 5
-    global.get 6
-    call_indirect (type 2)
+    i32.add
+    local.set $pointer4
+    local.get $pointer4
+    return)
+  (func $./print32.br0.print32 (type 2) (param $value2 i32) (result i32)
+    (local $writeCharacterCode3 i32) (local $basePointer6 i32) (local $pointer7 i32) (local $length8 i32)
+    i32.const 1
+    local.set $writeCharacterCode3
+    i32.const 0
+    local.set $basePointer6
+    local.get $basePointer6
+    i32.const 8
+    i32.add
+    local.set $pointer7
+    i32.const 0
+    local.set $length8
+    local.get $value2
+    i32.eqz
+    if  ;; label = @1
+      local.get $pointer7
+      i32.const 48
+      local.get $writeCharacterCode3
+      call_indirect (type 1)
+      local.set $pointer7
+      local.get $length8
+      i32.const 1
+      i32.add
+      local.set $length8
+    end
+    local.get $pointer7
+    i32.const 10
+    local.get $writeCharacterCode3
+    call_indirect (type 1)
+    local.set $pointer7
+    local.get $length8
+    i32.const 1
+    i32.add
+    local.set $length8
+    local.get $basePointer6
+    i32.const 8
+    i32.store align=1
+    local.get $basePointer6
+    i32.const 4
+    i32.add
+    local.get $length8
+    i32.store align=1
+    i32.const 1
+    i32.const 0
+    i32.const 1
+    i32.const 40
+    global.get 1
+    call_indirect (type 0)
     drop
     i32.const 3
     return)
-  (func $./Resources/LinkerTest/Linker.br1._start (type 4)
-    (local $test2 i32)
-    global.get 5
-    global.get 6
-    call_indirect (type 2)
+  (func $./print32.br0._start (type 3)
+    i32.const 2
+    global.set 2)
+  (func $./Resources/LinkTest/index.br1._start (type 5)
+    i32.const 0
+    global.get 0
+    call_indirect (type 4)
     drop
-    global.get 1
     i32.const 1
-    i32.add
-    local.set $test2)
-  (func $_start (type 5)
-    call $./constants.br0._start
-    call $./Resources/LinkerTest/Linker.br1._start)
+    global.get 0
+    call_indirect (type 4)
+    drop)
+  (func $_start (type 6)
+    call $./print32.br0._start
+    call $./Resources/LinkTest/index.br1._start)
   (table (;0;) 3 funcref)
   (memory (;0;) 2)
-  (global (;2;) i32 (i32.const 0))
+  (global (;1;) i32 (i32.const 0))
+  (global (;2;) (mut i32) (i32.const 0))
   (global (;3;) i32 (i32.const 0))
-  (global (;4;) (mut i32) (i32.const 0))
-  (global (;5;) i32 (i32.const 0))
-  (global (;6;) i32 (i32.const 0))
-  (start $_start))
+  (global (;4;) i32 (i32.const 0))
+  (export "memory" (memory 0))
+  (start $_start)
+  (elem (;0;) (i32.const 0) func $./print32.br0.fd_write)
+  (elem (;1;) (i32.const 1) func $./print32.br0.writeCharacterCode)
+  (elem (;2;) (i32.const 2) func $./print32.br0.print32))

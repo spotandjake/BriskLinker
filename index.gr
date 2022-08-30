@@ -25,15 +25,11 @@ let writeFile = (filePath, fileContents) => {
       let writeSuccess = File.fdWrite(descriptor, fileContents)
       match (writeSuccess) {
         Ok(_) => void,
-        Err(error) =>
-          fail "[Error Writing File: " ++
-          filePath ++
-          "]: " ++
-          toString(error),
+        Err(error) => fail "[Error Writing File: " ++ filePath ++ "]",
       }
     },
     // TODO: Return Err
-    Err(error) => fail "[Error: " ++ filePath ++ "]: " ++ toString(error),
+    Err(error) => fail "[Error: " ++ filePath ++ "]",
   }
 }
 // Definition For ReadFile
@@ -58,7 +54,7 @@ let readFile = filePath => {
       Bytes.fromString(contents)
     },
     // TODO: Return Err
-    Err(error) => fail "[Error: " ++ filePath ++ "]: " ++ toString(error),
+    Err(error) => fail "[Error: " ++ filePath ++ "]",
   }
 }
 // Definition For pathAbsolute
@@ -88,4 +84,4 @@ let linkBuild = (filePath, outputPath) => {
 }
 
 // link The Build
-linkBuild("./LinkerTest/Linker.br.wasm", "./LinkerTest/Linker_Linked.br.wasm")
+linkBuild("./LinkerTest/index.br.wasm", "./LinkerTest/Linker_Linked.br.wasm")

@@ -18,3 +18,5 @@ fi
 filesize=$(stat -f%z index.gr.wasm)
 filesize=$(bc <<< "scale=3; $filesize / 1024")
 echo "$filesize"kb >> oldSize.txt
+# Try and run
+wasmtime ./LinkerTest/Linker_Linked.br.wasm
