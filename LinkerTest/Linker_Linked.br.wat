@@ -7,12 +7,11 @@
   (type (;5;) (func))
   (type (;6;) (func))
   (import "wasi_snapshot_preview1" "fd_write" (func $./print32.br0.fd_write (type 0)))
-  (import "$Brisk$./print32.br.wasm" "$Brisk$print32" (global (;0;) i32))
   (func $./print32.br0.writeCharacterCode (type 1) (param $pointer4 i32) (param $character5 i32) (result i32)
     local.get $pointer4
     local.get $character5
     i32.store align=1
-    local.get $pointer4`
+    local.get $pointer4
     i32.const 1
     i32.add
     local.set $pointer4
@@ -64,32 +63,35 @@
     i32.const 0
     i32.const 1
     i32.const 40
-    global.get 1
+    global.get 0
     call_indirect (type 0)
     drop
     i32.const 3
     return)
   (func $./print32.br0._start (type 3)
     i32.const 2
-    global.set 2)
+    global.set 1)
   (func $./Resources/LinkTest/index.br1._start (type 5)
     i32.const 0
-    global.get 0
+    global.get 4
     call_indirect (type 4)
     drop
     i32.const 1
-    global.get 0
+    global.get 4
     call_indirect (type 4)
     drop)
   (func $_start (type 6)
     call $./print32.br0._start
+    global.get 1
+    global.set 4
     call $./Resources/LinkTest/index.br1._start)
   (table (;0;) 3 funcref)
   (memory (;0;) 2)
-  (global (;1;) i32 (i32.const 0))
-  (global (;2;) (mut i32) (i32.const 0))
+  (global (;0;) i32 (i32.const 0))
+  (global (;1;) (mut i32) (i32.const 0))
+  (global (;2;) i32 (i32.const 0))
   (global (;3;) i32 (i32.const 0))
-  (global (;4;) i32 (i32.const 0))
+  (global (;4;) (mut i32) (i32.const 0))
   (export "memory" (memory 0))
   (start $_start)
   (elem (;0;) (i32.const 0) func $./print32.br0.fd_write)

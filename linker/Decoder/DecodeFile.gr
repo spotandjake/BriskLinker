@@ -39,8 +39,6 @@ export record FileData {
   mut dependencies: Map.Map<String, String>,
   // OffsetData
   mut offsetData: OffsetData,
-  // Mapping Data
-  importGlobalMap: Map.Map<(String, String), Number>,
 }
 // Decodes A Wasm File
 export let decodeFile = (modulePath, wasmBinary) => {
@@ -112,7 +110,5 @@ export let decodeFile = (modulePath, wasmBinary) => {
       funcMap: Map.make(),
       typeMap: Map.make(),
     },
-    // Import Mapping Data
-    importGlobalMap: Map.make(),
   }
 }

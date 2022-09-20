@@ -27,6 +27,7 @@ export record WasmImport {
   importName: String,
   importKind: ExternKind,
   mut briskImport: Bool,
+  mut localIndex: Option<Number>,
   importDescription: WasmImportDescription,
 }
 export record WasmExport {
@@ -102,6 +103,7 @@ export let decodeWasmImport = wasmStream => {
     importName,
     importKind,
     briskImport: false,
+    localIndex: None,
     importDescription,
   }
 }
