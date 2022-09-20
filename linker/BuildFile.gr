@@ -358,6 +358,8 @@ export let createGlobalSection = (wasmBinary, dependencyChain, wasmData) => {
         wasmImport.importKind == WasmDecoder.GlobalKind
       ) {
         // Create An Import Value
+        // Create Global
+        // Map Global
         print(wasmImport)
       }
     }, dependency.wasmImports)
