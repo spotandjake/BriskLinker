@@ -58,7 +58,6 @@ export let createCustomSection = (wasmBinary, dependencyChain, wasmData) => {
           Stream.resetPointer(sectionContent)
           let sectionID = Stream.nextString(sectionContent)
           if (sectionID == "name") {
-            // TODO: Use the filename or the module name from the file, need to handle duplicates
             let mut moduleName = "module" ++ toString(index)
             while (Stream.remainingLength(sectionContent) > 0) {
               match (Stream.nextByte(sectionContent)) {
@@ -435,7 +434,6 @@ export let createStartSection = (wasmBinary, dependencyChain, wasmData) => {
   }, dependencyChain)
   // Build The Start Function Type
   let startFunctionType = listToBuffer([0x60, 0x00, 0x00])
-  // TODO: Clean This Up
   wasmBinary.typeSection = [
     (1, Buffer.toBytes(startFunctionType)),
     ...wasmBinary.typeSection
@@ -577,12 +575,12 @@ export let buildBinary = wasmBinaryContent => {
       Encoder.encodeUIntLeb128(localCount),
       localNameSubSection
     )
-    List.forEach(((localIndex, localname)) => {
+    List.forEach(((localIndex, localName)) => {
       appendBufferByteList(
         Encoder.encodeUIntLeb128(localIndex),
         localNameSubSection
       )
-      appendBufferByteList(Encoder.encodeString(localname), localNameSubSection)
+      appendBufferByteList(Encoder.encodeString(localName), localNameSubSection)
     }, List.sort(((a, _), (b, _)) => a - b, locals))
   }, List.sort(((a, _, _), (b, _, _)) => a - b, wasmBinaryContent.localNames))
   // Local Names SubSection

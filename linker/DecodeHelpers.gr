@@ -1,5 +1,4 @@
 import Stream from "./Stream"
-// TODO: Switch BuildFile.gr To use Helpers
 export let decodeCount = (stream, decoder) => {
   if (Stream.length(stream) > 0) {
     let count = Stream.nextUIntLEB128(stream)

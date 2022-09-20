@@ -12,7 +12,7 @@
     local.get $pointer4
     local.get $character5
     i32.store align=1
-    local.get $pointer4
+    local.get $pointer4`
     i32.const 1
     i32.add
     local.set $pointer4

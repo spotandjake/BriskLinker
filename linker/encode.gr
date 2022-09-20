@@ -57,6 +57,7 @@ let encodeImportDescription = importDescription => {
     WasmDecoder.FunctionImport(typeRef) => [0x00, ...encodeUIntLeb128(typeRef)],
     // TODO: Table Import
     // TODO: Memory Import
+    WasmDecoder.MemoryImport(min, max) => fail "Not Yet Implemented",
     WasmDecoder.GlobalImport(mutable, wasmType) => {
       let constant = if (mutable) 0x01 else 0x00
       // typeDescription, typeRef

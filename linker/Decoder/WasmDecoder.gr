@@ -13,7 +13,7 @@ export enum WasmType {
 export enum WasmImportDescription {
   FunctionImport(Number),
   // TODO: Table Import
-  // TODO: Memory Import
+  MemoryImport(Number, Option<Number>),
   GlobalImport(Bool, WasmType),
 }
 export enum ExternKind {
@@ -39,7 +39,6 @@ export record WasmExport {
 export let decodeWasmType = stream => {
   // Get Wasm Type
   let wasmType = Stream.nextByte(stream)
-  // TODO: Make Sure We Can Parse All Types
   match (wasmType) {
     0x7f => WasmI32,
     0x7e => WasmI64,
@@ -70,8 +69,22 @@ export let decodeWasmImport = wasmStream => {
     },
     // TODO: Table Import
     0x01 => fail "Table Import Not Yet Implemented",
-    // TODO: Memory Import
-    0x02 => fail "Memory Import Not Yet Implemented",
+    0x02 => {
+      let limitType = Stream.nextByte(wasmStream)
+      let (min, max) = match (limitType) {
+        0x00 => {
+          let min = Stream.nextUIntLEB128(wasmStream)
+          let max = Stream.nextUIntLEB128(wasmStream)
+          (min, Some(max))
+        },
+        0x01 => {
+          let min = Stream.nextUIntLEB128(wasmStream)
+          (min, None)
+        },
+        _ => fail "Invalid Memory Limit Type",
+      }
+      (MemoryKind, MemoryImport(min, max))
+    },
     // Global Import
     0x03 => {
       // Get Global Type

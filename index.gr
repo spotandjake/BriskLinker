@@ -28,7 +28,6 @@ let writeFile = (filePath, fileContents) => {
         Err(error) => fail "[Error Writing File: " ++ filePath ++ "]",
       }
     },
-    // TODO: Return Err
     Err(error) => fail "[Error: " ++ filePath ++ "]",
   }
 }
@@ -51,16 +50,14 @@ let readFile = filePath => {
       let (contents, _) = Result.unwrap(
         File.fdRead(descriptor, Int64.toNumber(stats.size))
       )
-      Bytes.fromString(contents)
+      Ok(Bytes.fromString(contents))
     },
-    // TODO: Return Err
-    Err(error) => fail "[Error: " ++ filePath ++ "]",
+    Err(error) => Err("[Error: " ++ filePath ++ "]"),
   }
 }
 // Definition For pathAbsolute
 let pathAbsolute = (parentPath, filePath) => {
   // TODO: Develop A Nice Module For Handling File Paths
-  // TODO: Replace this with something that works better
   // TODO: Normalize The File Path because currently this will not work well
   let fileNamePos = match (String.indexOf("/", String.reverse(parentPath))) {
     Some(pos) => pos,
