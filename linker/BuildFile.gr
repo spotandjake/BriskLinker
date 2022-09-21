@@ -19,6 +19,8 @@ record WasmBinary {
   mut moduleName: String,
   mut funcNames: List<(Number, String)>,
   mut localNames: List<(Number, Number, List<(Number, String)>)>,
+  // Properties
+  mut hasMemoryImport: Bool,
   // Section Data
   mut customSections: List<Buffer.Buffer>, // customSection[]
   mut typeSection: List<(Number, Bytes)>, // (typeCount, typeContent)[]
@@ -182,6 +184,8 @@ export let createImportSection = (wasmBinary, dependencyChain, wasmData) => {
       // TODO: We can only have one table import and one memory import so take the ones from the entryFile
       // TODO: Perform The Mapping in the global section and function section
       if (!wasmImport.briskImport) {
+        if (wasmImport.importKind == WasmDecoder.MemoryKind)
+          wasmBinary.hasMemoryImport = true
         let importDesc = match (wasmImport.importDescription) {
           WasmDecoder.FunctionImport(typeRef) => {
             Map.set(
@@ -330,18 +334,20 @@ export let createTableSection = (wasmBinary, dependencyChain, wasmData) => {
 }
 export let createMemorySection = (wasmBinary, dependencyChain, wasmData) => {
   // TODO: Once wasm supports multiple memories consider using a separate memory per dependency
-  let mut initialMemorySize = 0
-  List.forEach((dependency: DecodeFile.FileData) => {
-    let memorySection = getSectionStream(0x05, dependency.wasmSections)
-    // Skip the tableCount, flagType until wasm has multiple memories
-    Stream.advance(memorySection, 2)
-    initialMemorySize += Stream.nextByte(memorySection)
-  }, dependencyChain)
-  // Write The Table Section
-  wasmBinary.memorySection = [
-    listToBuffer([0x00, ...Encoder.encodeUIntLeb128(initialMemorySize)]),
-    ...wasmBinary.memorySection
-  ]
+  if (!wasmBinary.hasMemoryImport) {
+    let mut initialMemorySize = 0
+    List.forEach((dependency: DecodeFile.FileData) => {
+      let memorySection = getSectionStream(0x05, dependency.wasmSections)
+      // Skip the tableCount, flagType until wasm has multiple memories
+      Stream.advance(memorySection, 2)
+      initialMemorySize += Stream.nextByte(memorySection)
+    }, dependencyChain)
+    // Write The Table Section
+    wasmBinary.memorySection = [
+      listToBuffer([0x00, ...Encoder.encodeUIntLeb128(initialMemorySize)]),
+      ...wasmBinary.memorySection
+    ]
+  }
 }
 export let createGlobalSection = (wasmBinary, dependencyChain, wasmData) => {
   // Map Deps
@@ -422,49 +428,49 @@ export let createGlobalSection = (wasmBinary, dependencyChain, wasmData) => {
 }
 export let createExportSection = (wasmBinary, dependencyChain, wasmData) => {
   List.forEach((dependency: DecodeFile.FileData) => {
-      List.forEach((wasmExport: WasmDecoder.WasmExport) => {
-        if (!wasmExport.briskExport && dependency.isEntry) {
-          // Assemble Export
-          let exportStream = Buffer.make(0)
-          appendBufferByteList(
-            Encoder.encodeString(wasmExport.exportName),
-            exportStream
-          )
-          let (exportKind, exportValue) = match (wasmExport.exportKind) {
-            WasmDecoder.FuncKind =>
-              (
-                0x00,
-                Map.get(wasmExport.exportIndex, dependency.offsetData.funcMap),
-              ),
-            WasmDecoder.TableKind => (0x01, Some(wasmExport.exportIndex)),
-            WasmDecoder.MemoryKind => (0x02, Some(wasmExport.exportIndex)),
-            WasmDecoder.GlobalKind =>
-              (
-                0x03,
-                Map.get(
-                  wasmExport.exportIndex,
-                  dependency.offsetData.globalMap
-                ),
-              ),
-          }
-          let exportValue = match (exportValue) {
-            Some(value) => value,
-            None => fail "Impossible: Invalid Reference",
-          }
-          appendBufferByte(exportKind, exportStream)
-          appendBufferByteList(
-            Encoder.encodeUIntLeb128(exportValue),
-            exportStream
-          )
-          wasmBinary.exportSection = [exportStream, ...wasmBinary.exportSection]
+    List.forEach((wasmExport: WasmDecoder.WasmExport) => {
+      if (!wasmExport.briskExport && dependency.isEntry) {
+        // Assemble Export
+        let exportStream = Buffer.make(0)
+        appendBufferByteList(
+          Encoder.encodeString(wasmExport.exportName),
+          exportStream
+        )
+        let (exportKind, exportValue) = match (wasmExport.exportKind) {
+          WasmDecoder.FuncKind =>
+            (
+              0x00,
+              Map.get(wasmExport.exportIndex, dependency.offsetData.funcMap),
+            ),
+          WasmDecoder.TableKind => (0x01, Some(wasmExport.exportIndex)),
+          WasmDecoder.MemoryKind => (0x02, Some(wasmExport.exportIndex)),
+          WasmDecoder.GlobalKind =>
+            (
+              0x03,
+              Map.get(wasmExport.exportIndex, dependency.offsetData.globalMap),
+            ),
         }
-      }, dependency.wasmExports)
+        let exportValue = match (exportValue) {
+          Some(value) => value,
+          None => fail "Impossible: Invalid Reference",
+        }
+        appendBufferByte(exportKind, exportStream)
+        appendBufferByteList(
+          Encoder.encodeUIntLeb128(exportValue),
+          exportStream
+        )
+        wasmBinary.exportSection = [exportStream, ...wasmBinary.exportSection]
+      }
+    }, dependency.wasmExports)
   }, dependencyChain)
   // TODO: Ensure Every Export Has Been Fulfilled
 }
 export let createStartSection = (wasmBinary, dependencyChain, wasmData) => {
   // Create The Dependency Map
-  let dependencyMap = Map.fromList(List.map((dep: DecodeFile.FileData) => (dep.modulePath, dep), dependencyChain))
+  let dependencyMap = Map.fromList(
+    List.map((dep: DecodeFile.FileData) =>
+      (dep.modulePath, dep), dependencyChain)
+  )
   // Map The Start Function
   let startFunc = Buffer.make(0)
   List.forEach((dependency: DecodeFile.FileData) => {
@@ -484,21 +490,26 @@ export let createStartSection = (wasmBinary, dependencyChain, wasmData) => {
       }
       // Append The Import Globals Mapping
       List.forEach((wasmImport: WasmDecoder.WasmImport) => {
-        if (wasmImport.briskImport && wasmImport.importKind == WasmDecoder.GlobalKind) {
+        if (
+          wasmImport.briskImport &&
+          wasmImport.importKind == WasmDecoder.GlobalKind
+        ) {
           // Get The Dependency
-          let moduleName = Option.unwrap(Map.get(wasmImport.importModule, dependency.dependencies))
+          let moduleName = Option.unwrap(
+            Map.get(wasmImport.importModule, dependency.dependencies)
+          )
           match (Map.get(moduleName, dependencyMap)) {
             Some(targetDependency) => {
               // Get The Export
               let targetExport = List.find((exp: WasmDecoder.WasmExport) => {
                 exp.briskExport && wasmImport.importName == exp.exportName
-              }, targetDependency.wasmExports);
+              }, targetDependency.wasmExports)
               match (targetExport) {
                 Some(exportInfo) => {
                   let exportIndex = Map.get(
                     exportInfo.exportIndex,
                     targetDependency.offsetData.globalMap
-                  );
+                  )
                   match (Map.get(
                     exportInfo.exportIndex,
                     targetDependency.offsetData.globalMap
@@ -509,19 +520,24 @@ export let createStartSection = (wasmBinary, dependencyChain, wasmData) => {
                         [0x23, ...Encoder.encodeUIntLeb128(exportIndex)],
                         startFunc
                       ) // Write the global.get
-                      let importIndex = Option.unwrap(Map.get(Option.unwrap(wasmImport.localIndex), dependency.offsetData.globalMap))
+                      let importIndex = Option.unwrap(
+                        Map.get(
+                          Option.unwrap(wasmImport.localIndex),
+                          dependency.offsetData.globalMap
+                        )
+                      )
                       appendBufferByteList(
                         [0x24, ...Encoder.encodeUIntLeb128(importIndex)],
                         startFunc
                       ) // Write the global.set
                     },
-                    None => fail "Impossible: Invalid Export Index"
+                    None => fail "Impossible: Invalid Export Index",
                   }
                 },
-                None => fail "Impossible: Unknown Brisk Export"
+                None => fail "Impossible: Unknown Brisk Export",
               }
             },
-            None => fail "Impossible: Unknown Brisk Module"
+            None => fail "Impossible: Unknown Brisk Module",
           }
         }
       }, dependency.wasmImports)
@@ -803,6 +819,8 @@ export let buildFile = dependencyChain => {
     moduleName: "",
     funcNames: [],
     localNames: [],
+    // Properties
+    hasMemoryImport: false,
     // Section Data
     customSections: [],
     typeSection: [],
