@@ -16,6 +16,8 @@ if [ "$detail" == "true" ]; then
   else
     wasm2wat ./LinkerTest/Linker_Linked.br.wasm -o ./LinkerTest/Linker_Linked.br.wat --verbose --no-check
   fi
+else
+  wasm2wat ./LinkerTest/Linker_Linked.br.wasm -o ./LinkerTest/Linker_Linked.br.wat --no-check
 fi
 # Log The Size
 filesize=$(stat -f%z index.gr.wasm)

@@ -18,6 +18,7 @@ record WasmBinary {
   // Naming Data
   mut moduleName: String,
   mut funcNames: List<(Number, String)>,
+  mut globalNames: List<(Number, String)>,
   mut localNames: List<(Number, Number, List<(Number, String)>)>,
   // Properties
   mut hasMemoryImport: Bool,
@@ -127,6 +128,30 @@ export let createCustomSection = (wasmBinary, dependencyChain, wasmData) => {
                     wasmBinary.localNames
                   )
                 },
+                // Global name Section
+                0x07 => {
+                  Stream.nextUIntLEB128(sectionContent) // get subSection Size
+                  let globalCount = Stream.nextUIntLEB128(sectionContent)
+                  for (let mut i = 0; i < globalCount; i += 1) {
+                    let globalIndex = Stream.nextUIntLEB128(sectionContent)
+                    let globalName = Stream.nextString(sectionContent)
+                    // Map Function Index
+                    match (Map.get(
+                      globalIndex,
+                      dependency.offsetData.globalMap
+                    )) {
+                      Some(globalIndex) => {
+                        // Push To The New Name Section Info
+                        wasmBinary.globalNames = [
+                          (globalIndex, moduleName ++ "." ++ globalName),
+                          ...wasmBinary.globalNames
+                        ]
+                      },
+                      None => void,
+                    }
+                  }
+                  void
+                },
                 _ => break,
               }
             }
@@ -230,10 +255,12 @@ export let createImportSection = (wasmBinary, dependencyChain, wasmData) => {
           WasmDecoder.FuncKind => {
             wasmImport.localIndex = Some(localFunctionCount)
             localFunctionCount += 1
+            dependency.offsetData.importFunctionCount += 1
           },
           WasmDecoder.GlobalKind => {
             wasmImport.localIndex = Some(localGlobalCount)
             localGlobalCount += 1
+            dependency.offsetData.importGlobalCount += 1
           },
           _ =>
             fail "Only Global And Function Brisk Imports Are Currently Supported",
@@ -699,10 +726,23 @@ export let buildBinary = wasmBinaryContent => {
       appendBufferByteList(Encoder.encodeString(localName), localNameSubSection)
     }, List.sort(((a, _), (b, _)) => a - b, locals))
   }, List.sort(((a, _, _), (b, _, _)) => a - b, wasmBinaryContent.localNames))
+  let globalNameSubSection = Buffer.make(0)
+  appendBufferByteList(
+    Encoder.encodeUIntLeb128(List.length(wasmBinaryContent.globalNames)),
+    globalNameSubSection
+  )
+  List.forEach(((globalIndex, globalName)) => {
+    appendBufferByteList(
+      Encoder.encodeUIntLeb128(globalIndex),
+      globalNameSubSection
+    )
+    appendBufferByteList(Encoder.encodeString(globalName), globalNameSubSection)
+  }, List.sort(((a, _), (b, _)) => a - b, wasmBinaryContent.globalNames))
   // Local Names SubSection
   Buffer.addBuffer(encodeSection(0x00, moduleNameSubSection), nameSection)
   Buffer.addBuffer(encodeSection(0x01, funcNameSubSection), nameSection)
   Buffer.addBuffer(encodeSection(0x02, localNameSubSection), nameSection)
+  Buffer.addBuffer(encodeSection(0x07, globalNameSubSection), nameSection)
   let nameSection = encodeSection(0x00, nameSection)
   // Build The Custom Sections
   let customSection = Buffer.make(0)
@@ -818,6 +858,7 @@ export let buildFile = dependencyChain => {
     // Name Section Info
     moduleName: "",
     funcNames: [],
+    globalNames: [],
     localNames: [],
     // Properties
     hasMemoryImport: false,
