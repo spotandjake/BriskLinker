@@ -1,8 +1,37 @@
+import String from "string"
+import Array from "array"
+import List from "list"
+import Regex from "regex"
+// Constants
+let fileNameRegex = match (Regex.make("[\\/][^\\/]*\\.\\w+$")) {
+  Ok(matcher) => matcher,
+  Err(error) => fail error,
+}
+// TODO: Path Helpers
+export let getFilePath = path => Regex.replace(fileNameRegex, path, "/")
+// export let getFileName = path => "Name"
+// normalizePath
+export let normalizePath = path => {
+  let mut outputPath = []
+  // Replace \ with /
+  // TODO: Use String.replace
+  let path = Array.join("/", String.split("\\", path))
+  // Split path into segments
+  let pathSegments = String.split("/", path)
+  // Resolve .. and .
+  Array.forEach(pathSegment => match (pathSegment) {
+    "." => void,
+    ".." => outputPath = List.drop(1, outputPath),
+    _ => outputPath = [pathSegment, ...outputPath],
+  }, pathSegments)
+  // Join The End String
+  List.join("/", List.reverse(outputPath))
+}
 // Resolves Two Paths Into The Base Path Relative To The Entry File
 export let resolvePath = (parentPath, childPath) => {
-  // Get The Directory Of The parentPath,
-  // Combine The Paths
-  // Normalize The Paths
-  // Return The Path
-  ""
+  // Remove fileName from parentPath
+  let parentPath = getFilePath(parentPath)
+  // TODO: Ensure path is not absolute
+  // Normalize The Path
+  normalizePath(parentPath ++ childPath)
 }
