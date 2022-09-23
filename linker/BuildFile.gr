@@ -205,9 +205,6 @@ export let createImportSection = (wasmBinary, dependencyChain, wasmData) => {
     // For Each Import
     List.forEach((wasmImport: WasmDecoder.WasmImport) => {
       // Map The Actual Import
-      // TODO: Determine how to map the imports and exports
-      // TODO: We can only have one table import and one memory import so take the ones from the entryFile
-      // TODO: Perform The Mapping in the global section and function section
       if (!wasmImport.briskImport) {
         if (wasmImport.importKind == WasmDecoder.MemoryKind)
           wasmBinary.hasMemoryImport = true
@@ -490,7 +487,6 @@ export let createExportSection = (wasmBinary, dependencyChain, wasmData) => {
       }
     }, dependency.wasmExports)
   }, dependencyChain)
-  // TODO: Ensure Every Export Has Been Fulfilled
 }
 export let createStartSection = (wasmBinary, dependencyChain, wasmData) => {
   // Create The Dependency Map
