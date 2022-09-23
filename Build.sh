@@ -9,7 +9,7 @@ done
 clear
 bash ./clean.sh
 rm ./LinkerTest/Linker_Linked.br.wasm
-grain index.gr
+grain index.gr "./LinkerTest/index.br.wasm" "./LinkerTest/Linker_Linked.br.wasm"
 if [ "$detail" == "true" ]; then
   if [ "$check" == "true" ]; then
     wasm2wat ./LinkerTest/Linker_Linked.br.wasm -o ./LinkerTest/Linker_Linked.br.wat --verbose

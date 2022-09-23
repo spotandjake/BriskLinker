@@ -1,15 +1,41 @@
 import String from "string"
 import Array from "array"
 import List from "list"
-import Regex from "regex"
-// Constants
-let fileNameRegex = match (Regex.make("[\\/][^\\/]*\\.\\w+$")) {
-  Ok(matcher) => matcher,
-  Err(error) => fail error,
+// Path Helpers
+export let getPathData = path => {
+  let path = Array.join("/", String.split("\\", path))
+  let pathSegments = Array.toList(String.split("/", path))
+  let (path, name) = match (List.reverse(pathSegments)) {
+    [ name, ...rest ] => {
+      // Check if name is a file name
+      if (String.contains(".", name) && !String.startsWith(".", name)) {
+        (
+          List.join("/", List.reverse(rest)) ++ "/",
+          name
+        )
+      } else {
+        (
+          List.join("/", List.append(List.reverse(rest), [name])) ++ "/",
+          ""
+        )
+      }
+    },
+    path => (
+      List.join("/", List.reverse(path)) ++ "/",
+      ""
+    )
+  }
+  // Return Record
+  (path, name)
 }
-// TODO: Path Helpers
-export let getFilePath = path => Regex.replace(fileNameRegex, path, "/")
-// export let getFileName = path => "Name"
+export let getFilePath = path => {
+  let (path, name) = getPathData(path)
+  path
+}
+export let getFileName = path => {
+  let (path, name) = getPathData(path)
+  name
+}
 // normalizePath
 export let normalizePath = path => {
   let mut outputPath = []
@@ -21,7 +47,12 @@ export let normalizePath = path => {
   // Resolve .. and .
   Array.forEach(pathSegment => match (pathSegment) {
     "." => void,
-    ".." => outputPath = List.drop(1, outputPath),
+    ".." => {
+      match (List.head(outputPath)) {
+        None | Some("..") => outputPath = [pathSegment, ...outputPath],
+        Some(_) => outputPath = List.drop(1, outputPath),
+      }
+    },
     _ => outputPath = [pathSegment, ...outputPath],
   }, pathSegments)
   // Join The End String

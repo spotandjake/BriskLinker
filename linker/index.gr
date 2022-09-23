@@ -1,7 +1,6 @@
 import Map from "map"
 import List from "list"
 import Stack from "stack"
-import Result from "result"
 import DecodeFile, { decodeFile } from "./Decoder/DecodeFile"
 import { buildFile } from "./BuildFile"
 // TODO: Switch To A Graph Data Type
@@ -22,7 +21,10 @@ export let link = (entryFile, fileReader, pathAbsolute) => {
         // If we have already parsed this then skip it
         if (Map.contains(fileName, dependencyGraph)) continue
         // Read File
-        let fileContents = Result.unwrap(fileReader(fileName))
+        let fileContents = match (fileReader(fileName)) {
+          Ok(contents) => contents,
+          Err(err) => fail err
+        }
         // Parse File
         let fileData = decodeFile(fileName, fileContents)
         // Convert Dependency File Paths From Relative To Absolute

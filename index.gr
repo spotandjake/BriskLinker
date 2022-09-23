@@ -9,6 +9,10 @@ import {
   resolvePath,
 } from "./linker/ResolvePath" // TODO: Replace with the path library once it's implemented
 import { link } from "./linker/index"
+record Arguments {
+  inFile: Option<String>,
+  outFile: Option<String>,
+}
 // Definition For Write File
 let writeFile = (filePath, fileContents) => {
   // TODO: if the file already exists this does not work
@@ -29,10 +33,10 @@ let writeFile = (filePath, fileContents) => {
       let writeSuccess = File.fdWrite(descriptor, fileContents)
       match (writeSuccess) {
         Ok(_) => void,
-        Err(error) => fail "[Error Writing File: " ++ filePath ++ "]",
+        Err(_) => fail "[Error Writing File: " ++ filePath ++ "]",
       }
     },
-    Err(error) => fail "[Error: " ++ filePath ++ "]",
+    Err(_) => fail "[Error: " ++ filePath ++ "]",
   }
 }
 // Definition For ReadFile
@@ -56,7 +60,7 @@ let readFile = filePath => {
       )
       Ok(Bytes.fromString(contents))
     },
-    Err(error) => Err("[Error: " ++ filePath ++ "]"),
+    Err(_) => Err("[Error: " ++ filePath ++ "]"),
   }
 }
 // Perform Linking
@@ -66,6 +70,13 @@ let linkBuild = (filePath, outputPath) => {
   // Write The output File
   writeFile(outputPath, wasmOutput)
 }
-// TODO: Make some way for external programs to pass in the entry file
+// Deal With Command Line Arguments
+// TODO: Replace with argument parser library
+let (input, output) = match (Process.argv()) {
+  Ok([> node, grain, _, input, output]) when String.endsWith("node", node) && String.endsWith("grain", grain) => (input, output),
+  Ok([> file, input, output]) when !String.endsWith("node", file) => (input, output),
+  Err(err) => fail toString(err),
+  _ => fail "Input/Output file was not provided"
+}
 // link The Build
-linkBuild("./LinkerTest/index.br.wasm", "./LinkerTest/Linker_Linked.br.wasm")
+linkBuild(input, output)
