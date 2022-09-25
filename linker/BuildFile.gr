@@ -603,8 +603,21 @@ export let createStartSection = (wasmBinary, dependencyChain, wasmData) => {
     (wasmData.funcCount, 0, []),
     ...wasmBinary.localNames
   ]
-  wasmBinary.startSection = listToBuffer(
-    Encoder.encodeUIntLeb128(wasmData.funcCount)
+  // TODO: Export a startSection that does not mess with WASI
+  // wasmBinary.startSection = listToBuffer(
+  //   Encoder.encodeUIntLeb128(wasmData.funcCount)
+  // )
+  // Push The Start Export to be Wasi Compatible
+  let startExport = Buffer.make(0)
+  // Export Name
+  appendBufferByteList(Encoder.encodeString("_start"), startExport)
+  // Export Type
+  appendBufferByteList(
+    [
+      0x00, // Function Export Kind
+      ...Encoder.encodeUIntLeb128(wasmData.funcCount)
+    ],
+    startExport
   )
 }
 export let createElementSection = (wasmBinary, dependencyChain, wasmData) => {
