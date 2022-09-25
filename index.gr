@@ -41,7 +41,6 @@ let writeFile = (filePath, fileContents) => {
 }
 // Definition For ReadFile
 let readFile = filePath => {
-  print("Reading: " ++ filePath)
   // Open The File
   let fd = File.pathOpen(
     File.pwdfd,
