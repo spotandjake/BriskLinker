@@ -1,0 +1,1 @@
+grain compile index.gr -o ./dist/index.wasm --release
