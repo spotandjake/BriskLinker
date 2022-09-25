@@ -114,7 +114,7 @@
   (global $./Resources/LinkTest/index.br1.$Brisk$Constant:moduleFunctionOffset i32 (i32.const 0))
   (global $./Resources/LinkTest/index.br1.print320 (mut i32) (i32.const 0))
   (export "memory" (memory 0))
-  (start $_start)
+  (export "_start" (func $_start))
   (elem (;0;) (i32.const 0) func $./print32.br0.fd_write)
   (elem (;1;) (i32.const 1) func $./print32.br0.writeCharacterCode)
   (elem (;2;) (i32.const 2) func $./print32.br0.print32))

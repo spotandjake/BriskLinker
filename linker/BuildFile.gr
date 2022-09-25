@@ -604,21 +604,23 @@ export let createStartSection = (wasmBinary, dependencyChain, wasmData) => {
     ...wasmBinary.localNames
   ]
   // TODO: Support WASI
-  wasmBinary.startSection = listToBuffer(
-    Encoder.encodeUIntLeb128(wasmData.funcCount)
-  )
-  // // Push The Start Export to be Wasi Compatible
-  // let startExport = Buffer.make(0)
-  // // Export Name
-  // appendBufferByteList(Encoder.encodeString("_start"), startExport)
-  // // Export Type
-  // appendBufferByteList(
-  //   [
-  //     0x00, // Function Export Kind
-  //     ...Encoder.encodeUIntLeb128(wasmData.funcCount)
-  //   ],
-  //   startExport
+  // wasmBinary.startSection = listToBuffer(
+  //   Encoder.encodeUIntLeb128(wasmData.funcCount)
   // )
+  // Push The Start Export to be Wasi Compatible
+  let startExport = Buffer.make(0)
+  // Export Name
+  appendBufferByteList(Encoder.encodeString("_start"), startExport)
+  // Export Type
+  appendBufferByteList(
+    [
+      0x00, // Function Export Kind
+      ...Encoder.encodeUIntLeb128(wasmData.funcCount)
+    ],
+    startExport
+  )
+  // Export Start
+  wasmBinary.exportSection = [startExport, ...wasmBinary.exportSection]
 }
 export let createElementSection = (wasmBinary, dependencyChain, wasmData) => {
   let mut elementOffset = 0
@@ -850,7 +852,9 @@ export let buildBinary = wasmBinaryContent => {
   Buffer.addBuffer(memorySection, wasmBinary)
   Buffer.addBuffer(globalSection, wasmBinary)
   Buffer.addBuffer(exportSection, wasmBinary)
-  Buffer.addBuffer(startSection, wasmBinary)
+  if (Buffer.length(wasmBinaryContent.startSection) != 0) {
+    Buffer.addBuffer(startSection, wasmBinary)
+  }
   Buffer.addBuffer(elementSection, wasmBinary)
   Buffer.addBuffer(codeSection, wasmBinary)
   // let wasmBinary = createDataSection(wasmBinary, dependencyChain, wasmData)
