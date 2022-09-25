@@ -54,11 +54,14 @@ let readFile = filePath => {
   // Read The File Contents
   match (fd) {
     Ok(descriptor) => {
-      let stats = Result.unwrap(File.fdFilestats(descriptor))
-      let (contents, _) = Result.unwrap(
-        File.fdRead(descriptor, Int64.toNumber(stats.size))
-      )
-      Ok(Bytes.fromString(contents))
+      match (File.fdFilestats(descriptor)) {
+        Ok(stats) =>
+          match (File.fdRead(descriptor, Int64.toNumber(stats.size))) {
+            Ok((contents, _)) => Ok(Bytes.fromString(contents)),
+            Err(err) => throw err,
+          },
+        Err(err) => throw err,
+      }
     },
     Err(_) => Err("[Error: " ++ filePath ++ "]"),
   }
@@ -79,7 +82,7 @@ let (input, output) = match (Process.argv()) {
     (input, output),
   Ok([> file, input, output]) when !String.endsWith("node", file) =>
     (input, output),
-  Err(err) => fail toString(err),
+  Err(err) => throw err,
   _ => fail "Input/Output file was not provided",
 }
 // link The Build
