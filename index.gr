@@ -80,6 +80,10 @@ let (input, output) = match (Process.argv()) {
     String.endsWith("node", node) && String.endsWith("grain", grain)
   ) =>
     (input, output),
+  Ok([> node, grain, _, "--release", input, output]) when (
+    String.endsWith("node", node) && String.endsWith("grain", grain)
+  ) =>
+    (input, output),
   Ok([> file, input, output]) when !String.endsWith("node", file) =>
     (input, output),
   Err(err) => throw err,
