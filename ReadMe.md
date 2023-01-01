@@ -1,8 +1,12 @@
+> **Note**
+> This Linker Requires A Version Of Grain Greater Than Or Equal To v0.5.5
+
 # Brisk Linker
 This program is a general purpose wasm linker built for the Brisk programming language but open enough to be used by other languages compiled to wasm.
 
 # Current development state
-Currently the linker works and is being used for Brisk but may not support all valid wasm files. The linker is not currently mature and may contain bugs so I wouldn't use it in production environments unless you are willing to accept the risk of it possibly breaking.
+> **Note**
+> Currently the linker works and is being used for Brisk but may not support all valid wasm files. The linker is not currently mature and may contain bugs so I wouldn't use it in production environments unless you are willing to accept the risk of it possibly breaking.
 
 ## TODO
 + [ ] Build Export Section
@@ -25,7 +29,7 @@ Currently the linker works and is being used for Brisk but may not support all v
 + [ ] When wasm gets multiple memories and tables give each module its own memory and table
 + [ ] Consider using features from the component module system
 + [ ] Table Imports, Memory Imports
-+ [ ] Use Path, File, Graph, ArgumentParser library from grain - This should help a lot with stability and edge cases
++ [ ] Use File, Graph, ArgumentParser library from grain - This should help a lot with stability and edge cases
 
 # API
 Using the linker requires including a few things in your wasm file.
