@@ -1,2 +1,1 @@
-export let impossibleErr = "Impossible"
-export let refNotFoundErr = "Impossible: Reference Not Found"
+export let impossibleErr = "Impossible: "
