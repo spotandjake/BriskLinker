@@ -9,7 +9,7 @@ export let link = (entryFile, fileReader, pathAbsolute) => {
   // Create Dependency Graph
   let dependencyGraph = Map.make()
   let mut dependencyChain = []
-  let mut unparsedDependencies = Stack.make()
+  let mut unparsedDependencies = Stack.empty
   // Add Entry File To List
   unparsedDependencies = Stack.push(entryFile, unparsedDependencies)
   while (!Stack.isEmpty(unparsedDependencies)) {

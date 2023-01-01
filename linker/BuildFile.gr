@@ -318,7 +318,7 @@ export let createFuncSection = (wasmBinary, dependencyChain, wasmData) => {
             let refValue = Stream.nextUIntLEB128(funcBodyContent)
             let refValue = match (Map.get(refValue, refMap)) {
               Some(value) => value,
-              None => fail impossibleErr ++ toString(refValue),
+              None => fail impossibleErr,
             }
             appendBufferByteList(Encoder.encodeUIntLeb128(refValue), funcBody)
           }, codeRefs)
@@ -503,7 +503,7 @@ export let createStartSection = (wasmBinary, dependencyChain, wasmData) => {
         dependency.offsetData.funcMap
       )) {
         Some(funcIndex) => funcIndex,
-        None => fail impossibleErr ++ toString(startIndex),
+        None => fail impossibleErr,
       }
       // Append The Import Globals Mapping
       List.forEach((wasmImport: WasmDecoder.WasmImport) => {

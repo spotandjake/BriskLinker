@@ -45,11 +45,11 @@ export let decodeFile = (modulePath, wasmBinary) => {
   // Create Our Stream
   let stream = Stream.fromBytes(wasmBinary)
   // Ensure The File Is Valid
-  if (Stream.nextSliceList(stream, 4) != [0x00, 0x61, 0x73, 0x6d]) {
-    fail "File Missing Wasm Magic Number"
-  }
-  if (Stream.nextSliceList(stream, 4) != [0x01, 0x00, 0x00, 0x00]) {
-    fail "File Missing Wasm Version"
+  if (
+    Stream.nextSliceList(stream, 8) !=
+    [0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00]
+  ) {
+    fail "File Missing Wasm Magic Number, Or Wasm Version"
   }
   // Split File Into Sections
   let wasmSections = decodeFile(stream)
