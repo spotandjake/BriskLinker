@@ -2,9 +2,7 @@
 import Buffer from "buffer"
 import List from "list"
 import Map from "map"
-import String from "string"
 import Int32 from "int32"
-import Bytes from "bytes"
 import Option from "option"
 import Stream from "./Stream"
 import DecodeSection, { getSectionStream } from "./Decoder/DecodeSection"
@@ -322,7 +320,7 @@ export let createFuncSection = (wasmBinary, dependencyChain, wasmData) => {
               Some(value) => value,
               None =>
                 fail "Impossible: Reference Not Found " ++
-                toString(refValue),
+                  toString(refValue),
             }
             appendBufferByteList(Encoder.encodeUIntLeb128(refValue), funcBody)
           }, codeRefs)

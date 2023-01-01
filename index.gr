@@ -2,12 +2,9 @@
 import Bytes from "bytes"
 import File from "sys/file"
 import Process from "sys/process"
-import Result from "result"
 import Int64 from "int64"
 import String from "string"
-import {
-  resolvePath,
-} from "./linker/ResolvePath" // TODO: Replace with the path library once it's implemented
+import { resolvePath } from "./linker/ResolvePath"
 import { link } from "./linker/index"
 record Arguments {
   inFile: Option<String>,

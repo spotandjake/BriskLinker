@@ -23,7 +23,7 @@ export let link = (entryFile, fileReader, pathAbsolute) => {
         // Read File
         let fileContents = match (fileReader(fileName)) {
           Ok(contents) => contents,
-          Err(err) => fail err
+          Err(err) => fail err,
         }
         // Parse File
         let fileData = decodeFile(fileName, fileContents)
