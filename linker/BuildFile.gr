@@ -3,12 +3,12 @@ import Buffer from "buffer"
 import List from "list"
 import Map from "map"
 import Int32 from "int32"
-import Option from "option"
 import Stream from "./Stream"
 import DecodeSection, { getSectionStream } from "./Decoder/DecodeSection"
 import { decodeCount } from "./DecodeHelpers"
 import WasmDecoder from "./Decoder/WasmDecoder"
 import Encoder from "./encode"
+import { impossibleErr, refNotFoundErr } from "./Errors"
 // Type Imports
 import DecodeFile from "./Decoder/DecodeFile"
 // WasmBinary Type
@@ -83,7 +83,7 @@ export let createCustomSection = (wasmBinary, dependencyChain, wasmData) => {
                       dependency.offsetData.funcMap
                     )) {
                       Some(funcIndex) => funcIndex,
-                      None => fail "Impossible: Reference Not Found",
+                      None => fail refNotFoundErr,
                     }
                     // Push To The New Name Section Info
                     wasmBinary.funcNames = [
@@ -104,7 +104,7 @@ export let createCustomSection = (wasmBinary, dependencyChain, wasmData) => {
                       dependency.offsetData.funcMap
                     )) {
                       Some(funcIndex) => funcIndex,
-                      None => fail "Impossible: Reference Not Found",
+                      None => fail refNotFoundErr,
                     }
                     let localCount = Stream.nextUIntLEB128(sectionContent)
                     let mut funcLocalNames = []
@@ -218,7 +218,7 @@ export let createImportSection = (wasmBinary, dependencyChain, wasmData) => {
             dependency.offsetData.importFunctionCount += 1
             match (Map.get(typeRef, dependency.offsetData.typeMap)) {
               Some(typeOffset) => WasmDecoder.FunctionImport(typeOffset),
-              None => fail "Impossible: Type Not Found",
+              None => fail impossibleErr,
             }
           },
           WasmDecoder.GlobalImport(_, _) => {
@@ -280,7 +280,7 @@ export let createFuncSection = (wasmBinary, dependencyChain, wasmData) => {
         dependency.offsetData.typeMap
       )) {
         Some(typeOffset) => listToBuffer(Encoder.encodeUIntLeb128(typeOffset)),
-        None => fail "Impossible: Type Not Found",
+        None => fail impossibleErr,
       }
       // Map The Function Index
       Map.set(
@@ -318,14 +318,12 @@ export let createFuncSection = (wasmBinary, dependencyChain, wasmData) => {
             let refValue = Stream.nextUIntLEB128(funcBodyContent)
             let refValue = match (Map.get(refValue, refMap)) {
               Some(value) => value,
-              None =>
-                fail "Impossible: Reference Not Found " ++
-                  toString(refValue),
+              None => fail refNotFoundErr ++ toString(refValue),
             }
             appendBufferByteList(Encoder.encodeUIntLeb128(refValue), funcBody)
           }, codeRefs)
         },
-        None => fail "Impossible: Function Does Not Have Linking Info",
+        None => fail "Function Does Not Have Linking Info",
       }
       // Write The Remaining Stuff
       Buffer.addBytes(Stream.remainingBytes(funcBodyContent), funcBody)
@@ -414,8 +412,7 @@ export let createGlobalSection = (wasmBinary, dependencyChain, wasmData) => {
               WasmDecoder.WasmI64 => 0x42,
               WasmDecoder.WasmF32 => 0x43,
               WasmDecoder.WasmF64 => 0x44,
-              WasmDecoder.WasmFuncType(_, _) =>
-                fail "A Wasm Function Type Cannot Be In A Global Import",
+              WasmDecoder.WasmFuncType(_, _) => fail impossibleErr,
             }
             appendBufferByteList(
               [constExpr, 0x00, 0x0b],
@@ -426,7 +423,7 @@ export let createGlobalSection = (wasmBinary, dependencyChain, wasmData) => {
             // Get Local Index
             let localIndex = match (wasmImport.localIndex) {
               Some(index) => index,
-              None => fail "Impossible: Unset Local Import Index",
+              None => fail impossibleErr,
             }
             // Map Global
             Map.set(
@@ -436,8 +433,7 @@ export let createGlobalSection = (wasmBinary, dependencyChain, wasmData) => {
             )
             wasmData.globalCount += 1
           },
-          _ =>
-            fail "Impossible: A Global Import must have a Global Import Description",
+          _ => fail impossibleErr,
         }
       }
     }, dependency.wasmImports)
@@ -474,7 +470,7 @@ export let createExportSection = (wasmBinary, dependencyChain, wasmData) => {
         }
         let exportValue = match (exportValue) {
           Some(value) => value,
-          None => fail "Impossible: Invalid Reference",
+          None => fail impossibleErr,
         }
         appendBufferByte(exportKind, exportStream)
         appendBufferByteList(
@@ -507,7 +503,7 @@ export let createStartSection = (wasmBinary, dependencyChain, wasmData) => {
         dependency.offsetData.funcMap
       )) {
         Some(funcIndex) => funcIndex,
-        None => fail "Impossible: Reference Not Found" ++ toString(startIndex),
+        None => fail refNotFoundErr ++ toString(startIndex),
       }
       // Append The Import Globals Mapping
       List.forEach((wasmImport: WasmDecoder.WasmImport) => {
@@ -516,9 +512,13 @@ export let createStartSection = (wasmBinary, dependencyChain, wasmData) => {
           wasmImport.importKind == WasmDecoder.GlobalKind
         ) {
           // Get The Dependency
-          let moduleName = Option.unwrap(
-            Map.get(wasmImport.importModule, dependency.dependencies)
-          )
+          let moduleName = match (Map.get(
+            wasmImport.importModule,
+            dependency.dependencies
+          )) {
+            Some(moduleName) => moduleName,
+            None => fail impossibleErr,
+          }
           match (Map.get(moduleName, dependencyMap)) {
             Some(targetDependency) => {
               // Get The Export
@@ -541,24 +541,28 @@ export let createStartSection = (wasmBinary, dependencyChain, wasmData) => {
                         [0x23, ...Encoder.encodeUIntLeb128(exportIndex)],
                         startFunc
                       ) // Write the global.get
-                      let importIndex = Option.unwrap(
-                        Map.get(
-                          Option.unwrap(wasmImport.localIndex),
-                          dependency.offsetData.globalMap
-                        )
-                      )
+                      let importIndex = match (Map.get(
+                        match (wasmImport.localIndex) {
+                          Some(index) => index,
+                          None => fail impossibleErr,
+                        },
+                        dependency.offsetData.globalMap
+                      )) {
+                        Some(index) => index,
+                        None => fail impossibleErr,
+                      }
                       appendBufferByteList(
                         [0x24, ...Encoder.encodeUIntLeb128(importIndex)],
                         startFunc
                       ) // Write the global.set
                     },
-                    None => fail "Impossible: Invalid Export Index",
+                    None => fail impossibleErr,
                   }
                 },
-                None => fail "Impossible: Unknown Brisk Export",
+                None => fail impossibleErr,
               }
             },
-            None => fail "Impossible: Unknown Brisk Module",
+            None => fail impossibleErr,
           }
         }
       }, dependency.wasmImports)
@@ -601,7 +605,7 @@ export let createStartSection = (wasmBinary, dependencyChain, wasmData) => {
     (wasmData.funcCount, 0, []),
     ...wasmBinary.localNames
   ]
-  // TODO: Support WASI
+  // TODO: Support WASI Start Section
   // wasmBinary.startSection = listToBuffer(
   //   Encoder.encodeUIntLeb128(wasmData.funcCount)
   // )
@@ -660,7 +664,7 @@ export let createElementSection = (wasmBinary, dependencyChain, wasmData) => {
                   Encoder.encodeUIntLeb128(funcIndex),
                   elemData
                 ),
-              None => fail "Impossible: Reference Not Found",
+              None => fail refNotFoundErr,
             }
           }
           wasmBinary.elementSection = [elemData, ...wasmBinary.elementSection]
@@ -672,8 +676,8 @@ export let createElementSection = (wasmBinary, dependencyChain, wasmData) => {
   }, dependencyChain)
 }
 export let createDataSection = (wasmBinary, dependencyChain, wasmData) => {
-  // Create Data Section
-  // Create Data Count Section
+  // TODO: Create Data Section
+  // TODO: Create Data Count Section
   // Return The Buffer
   wasmBinary
 }
