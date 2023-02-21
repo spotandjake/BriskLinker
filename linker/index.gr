@@ -1,11 +1,16 @@
-import Map from "map"
-import List from "list"
-import Stack from "stack"
-import DecodeFile, { decodeFile } from "./Decoder/DecodeFile"
-import { buildFile } from "./BuildFile"
+module Linker
+
+// Imports
+include "map"
+include "list"
+include "stack"
+include "./Decoder/DecodeFile"
+include "./BuildFile"
+from DecodeFile use { decodeFile }
+from Builder use { buildFile }
 // TODO: Switch To A Graph Data Type
 // Linker Entry Function
-export let link = (entryFile, fileReader, pathAbsolute) => {
+provide let link = (entryFile, fileReader, pathAbsolute) => {
   // Create Dependency Graph
   let dependencyGraph = Map.make()
   let mut dependencyChain = []

@@ -1,6 +1,9 @@
-import Path from "path"
+module ResolvePath
+
+// Imports
+include "path"
 // Resolves Two Paths Into The Base Path Relative To The Entry File
-export let resolvePath = (parentPath, childPath) => {
+provide let resolvePath = (parentPath, childPath) => {
   // Parse The Path's
   let parentPath = Path.fromString(parentPath)
   let childPath = Path.fromString(childPath)

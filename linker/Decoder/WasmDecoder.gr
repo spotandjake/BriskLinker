@@ -1,28 +1,29 @@
-// Decodes Wasm Value
+module WasmDecoder
+
 // Imports
-import List from "list"
-import Stream from "../Stream"
+include "list"
+include "../stream"
 // Types
-export enum WasmType {
+provide enum WasmType {
   WasmI32,
   WasmI64,
   WasmF32,
   WasmF64,
   WasmFuncType(List<WasmType>, List<WasmType>),
 }
-export enum WasmImportDescription {
+provide enum WasmImportDescription {
   FunctionImport(Number),
   // TODO: Table Import
   MemoryImport(Number, Option<Number>),
   GlobalImport(Bool, WasmType),
 }
-export enum ExternKind {
+provide enum ExternKind {
   FuncKind,
   TableKind,
   MemoryKind,
   GlobalKind,
 }
-export record WasmImport {
+provide record WasmImport {
   importModule: String,
   importName: String,
   importKind: ExternKind,
@@ -30,14 +31,14 @@ export record WasmImport {
   mut localIndex: Option<Number>,
   importDescription: WasmImportDescription,
 }
-export record WasmExport {
+provide record WasmExport {
   exportName: String,
   exportKind: ExternKind,
   mut briskExport: Bool,
   exportIndex: Number,
 }
 // Functions
-export let decodeWasmType = stream => {
+provide let decodeWasmType = stream => {
   // Get Wasm Type
   let wasmType = Stream.nextByte(stream)
   match (wasmType) {
@@ -48,12 +49,12 @@ export let decodeWasmType = stream => {
     _ => fail "Invalid Wasm Type: ",
   }
 }
-export let decodeTypeReference = (wasmTypes, typeIndex) =>
+provide let decodeTypeReference = (wasmTypes, typeIndex) =>
   match (List.nth(typeIndex, wasmTypes)) {
     Some(wasmType) => wasmType,
     None => fail "Invalid Wasm Type Reference",
   }
-export let decodeWasmImport = wasmStream => {
+provide let decodeWasmImport = wasmStream => {
   // Get The Import Module
   let importModule = Stream.nextString(wasmStream)
   // Get The Import Name
@@ -107,7 +108,7 @@ export let decodeWasmImport = wasmStream => {
     importDescription,
   }
 }
-export let decodeWasmExport = wasmStream => {
+provide let decodeWasmExport = wasmStream => {
   let exportName = Stream.nextString(wasmStream)
   let exportKind = Stream.nextByte(wasmStream)
   let exportIndex = Stream.nextUIntLEB128(wasmStream)

@@ -1,9 +1,12 @@
+module DecodeSection
+
 // Imports
-import List from "list"
-import Stream from "../Stream"
-import WasmDecoder, { decodeWasmImport, decodeWasmExport } from "./WasmDecoder"
+include "list"
+include "../stream"
+include "./WasmDecoder"
+from WasmDecoder use { decodeWasmImport, decodeWasmExport }
 // Types
-export enum WasmSection {
+provide enum WasmSection {
   // SectionType(Length, Body)
   CustomSection(Stream.Stream),
   TypeSection(Stream.Stream),
@@ -19,12 +22,12 @@ export enum WasmSection {
   DataSection(Stream.Stream),
   DataCountSection(Stream.Stream),
 }
-export enum CodeReference {
+provide enum CodeReference {
   FuncRef(Number),
   TypeRef(Number),
   GlobalRef(Number),
 }
-export record LinkingInfo {
+provide record LinkingInfo {
   // Language Import Identifier
   importIdentifier: String,
   // The file functionOffsetGlobal Index
@@ -33,7 +36,7 @@ export record LinkingInfo {
   codeReferences: List<List<CodeReference>>,
 }
 // Getters
-export let getSectionStream = (wasmSectionID, wasmSections) => {
+provide let getSectionStream = (wasmSectionID, wasmSections) => {
   // Get The Stream
   let mut sectionStream = Stream.empty()
   let setStream = stream => {
@@ -60,7 +63,7 @@ export let getSectionStream = (wasmSectionID, wasmSections) => {
   // Return The Stream
   sectionStream
 }
-export let getLinkingInfoStream = wasmSections => {
+provide let getLinkingInfoStream = wasmSections => {
   let linkingSection = List.find(section => match (section) {
     CustomSection(stream) when Stream.nextString(stream) == "LinkingInfo" =>
       true,
@@ -72,7 +75,7 @@ export let getLinkingInfoStream = wasmSections => {
   }
 }
 // Decoders
-export let decodeSection = wasmStream => {
+provide let decodeSection = wasmStream => {
   // Get Section Id
   let sectionID = Stream.nextByte(wasmStream)
   // Get The Section Length
@@ -97,7 +100,7 @@ export let decodeSection = wasmStream => {
     _ => fail "Invalid Section",
   }
 }
-export let decodeFile = wasmStream => {
+provide let decodeFile = wasmStream => {
   let mut sections = []
   while (Stream.remainingLength(wasmStream) > 0) {
     let section = decodeSection(wasmStream)
@@ -120,7 +123,7 @@ let getRefs = (wasmStream, refType) => {
   })
 }
 // Decode Sections
-export let decodeLinkingSection = wasmSections => {
+provide let decodeLinkingSection = wasmSections => {
   // Get LinkingInfoStream
   let linkingInfoStream = getLinkingInfoStream(wasmSections)
   // Parse Linking Info Section
@@ -148,7 +151,7 @@ export let decodeLinkingSection = wasmSections => {
   // Package
   { importIdentifier, functionOffsetGlobal, codeReferences }
 }
-export let decodeImportSection = wasmSections => {
+provide let decodeImportSection = wasmSections => {
   // Find The Import Sections
   let wasmStream = getSectionStream(0x02, wasmSections)
   // Set The Stream Position To 0
@@ -160,7 +163,7 @@ export let decodeImportSection = wasmSections => {
     decodeWasmImport(wasmStream)
   })
 }
-export let decodeExportSection = wasmSections => {
+provide let decodeExportSection = wasmSections => {
   // Find The Export Sections
   let wasmStream = getSectionStream(0x07, wasmSections)
   // Set The Stream Position To 0

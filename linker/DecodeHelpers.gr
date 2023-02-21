@@ -1,5 +1,9 @@
-import Stream from "./Stream"
-export let decodeCount = (stream, decoder) => {
+module DecodeHelpers
+
+// Import
+include "./stream"
+// Provides
+provide let decodeCount = (stream, decoder) => {
   if (Stream.length(stream) > 0) {
     let count = Stream.nextUIntLEB128(stream)
     for (let mut i = 0; i < count; i += 1) {

@@ -1,5 +1,5 @@
 > **Note**
-> This Linker Requires A Version Of Grain Greater Than Or Equal To v0.5.5
+> This Linker Requires A Version Of Grain Greater Than Or Equal To v0.6.0
 
 # Brisk Linker
 This program is a general purpose wasm linker built for the Brisk programming language but open enough to be used by other languages compiled to wasm.
