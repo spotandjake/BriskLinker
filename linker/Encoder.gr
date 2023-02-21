@@ -1,9 +1,12 @@
-import List from "list"
-import String from "string"
-import WasmDecoder from "./Decoder/WasmDecoder"
+module Encoder
+
+// Imports
+include "list"
+include "string"
+include "./Decoder/WasmDecoder"
 // Encoders
 // Encode Primitives
-export let encodeUIntLeb128 = value => {
+provide let encodeUIntLeb128 = value => {
   let mut value = value
   let mut buf = []
   while (true) {
@@ -17,17 +20,17 @@ export let encodeUIntLeb128 = value => {
   }
   List.reverse(buf)
 }
-export let _encodeString = str => {
+provide let _encodeString = str => {
   List.init(String.length(str), index => {
     String.charCodeAt(index, str)
   })
 }
-export let encodeString = str => {
+provide let encodeString = str => {
   let stringContents = _encodeString(str)
   List.append(encodeUIntLeb128(List.length(stringContents)), stringContents)
 }
 // Wasm Encoders
-export let rec encodeWasmType = wasmType => {
+provide let rec encodeWasmType = wasmType => {
   match (wasmType) {
     WasmDecoder.WasmI32 => [0x7f],
     WasmDecoder.WasmI64 => [0x7e],
@@ -65,7 +68,7 @@ let encodeImportDescription = importDescription => {
     },
   }
 }
-export let encodeImport = (importModule, importName, importDescription) => {
+provide let encodeImport = (importModule, importName, importDescription) => {
   let importModule = encodeString(importModule)
   let importName = encodeString(importName)
   let importDescription = encodeImportDescription(importDescription)

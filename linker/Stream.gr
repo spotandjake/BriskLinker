@@ -1,30 +1,34 @@
-import WasmI32 from "runtime/unsafe/wasmi32"
-import { coerceNumberToWasmI32 } from "runtime/numbers"
-import Bytes from "bytes"
-import List from "list"
+module Stream
+
+// Imports
+include "runtime/unsafe/wasmi32"
+include "runtime/numbers"
+include "bytes"
+include "list"
+from Numbers use { coerceNumberToWasmI32 }
 // Helpers
 @unsafe
 let tagSimple = x => WasmI32.xor(WasmI32.shl(x, 1n), 1n)
 // Library For Interacting With Streams Of Data
-export record Stream {
+provide record Stream {
   data: Bytes,
   mut position: Number,
 }
 // Functions
-export let empty = () => {
+provide let empty = () => {
   { data: Bytes.empty, position: 0 }
 }
-export let fromBytes = data => {
+provide let fromBytes = data => {
   // Create A New Stream
   { data, position: 0 }
 }
 // Get Information
-export let isEmpty = stream => {
+provide let isEmpty = stream => {
   Bytes.length(stream.data) == 0
 }
 // Get The Next Element
 @unsafe
-export let nextByte = stream => {
+provide let nextByte = stream => {
   // Get The Value
   let ptr = WasmI32.fromGrain(stream.data)
   let bytesOffset = WasmI32.add(ptr, 8n)
@@ -34,7 +38,7 @@ export let nextByte = stream => {
   // Return The Value
   WasmI32.toGrain(tagSimple(byte)): Number
 }
-export let nextUIntLEB128 = stream => {
+provide let nextUIntLEB128 = stream => {
   let mut result = 0
   let mut shift = 0
   while (true) {
@@ -46,10 +50,10 @@ export let nextUIntLEB128 = stream => {
   // Return Result
   result
 }
-// export let nextIntLEB128 = (stream) => {
+// provide let nextIntLEB128 = (stream) => {
 //   void
 // }
-export let nextString = stream => {
+provide let nextString = stream => {
   // Get String Length
   let length = nextUIntLEB128(stream)
   // Get The String
@@ -61,30 +65,30 @@ export let nextString = stream => {
   str
 }
 // Length
-export let length = stream => Bytes.length(stream.data)
-export let remainingLength = stream => length(stream) - stream.position
+provide let length = stream => Bytes.length(stream.data)
+provide let remainingLength = stream => length(stream) - stream.position
 // Get The Next Slice
-export let nextSliceBytes = (stream, length) => {
+provide let nextSliceBytes = (stream, length) => {
   let result = Bytes.slice(stream.position, length, stream.data)
   stream.position += length
   result
 }
-export let nextStreamSlice = (stream, length) => {
+provide let nextStreamSlice = (stream, length) => {
   let result = nextSliceBytes(stream, length)
   fromBytes(result)
 }
-export let nextSliceList = (stream, length) => {
+provide let nextSliceList = (stream, length) => {
   List.init(length, index => nextByte(stream))
 }
-export let remainingBytes = stream => {
+provide let remainingBytes = stream => {
   Bytes.slice(stream.position, remainingLength(stream), stream.data)
 }
 // Move The Position
-export let advance = (stream, length) => {
+provide let advance = (stream, length) => {
   stream.position += length
 }
 // Reset
-export let resetPointer = stream => {
+provide let resetPointer = stream => {
   stream.position = 0
   stream
 }

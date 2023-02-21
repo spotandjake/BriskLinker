@@ -1,11 +1,16 @@
+module Main
+
 // Imports
-import Bytes from "bytes"
-import File from "sys/file"
-import Process from "sys/process"
-import Int64 from "int64"
-import String from "string"
-import { resolvePath } from "./linker/ResolvePath"
-import { link } from "./linker/index"
+include "bytes"
+include "sys/file"
+include "sys/process"
+include "int64"
+include "string"
+include "./linker/ResolvePath"
+include "./linker/index"
+from ResolvePath use { resolvePath }
+from Linker use { link }
+
 record Arguments {
   inFile: Option<String>,
   outFile: Option<String>,
@@ -27,7 +32,10 @@ let writeFile = (filePath, fileContents) => {
   match (fd) {
     Ok(descriptor) => {
       // Write The File Contents
-      let writeSuccess = File.fdWrite(descriptor, fileContents)
+      let writeSuccess = File.fdWrite(
+        descriptor,
+        Bytes.fromString(fileContents)
+      )
       match (writeSuccess) {
         Ok(_) => void,
         Err(_) => fail "[Error Writing File: " ++ filePath ++ "]",
@@ -54,7 +62,7 @@ let readFile = filePath => {
       match (File.fdFilestats(descriptor)) {
         Ok(stats) =>
           match (File.fdRead(descriptor, Int64.toNumber(stats.size))) {
-            Ok((contents, _)) => Ok(Bytes.fromString(contents)),
+            Ok((contents, _)) => Ok(contents),
             Err(err) => throw err,
           },
         Err(err) => throw err,

@@ -1,17 +1,20 @@
+module DecodeFile
+
 // Imports
-import List from "list"
-import String from "string"
-import Stream from "../Stream"
-import Map from "map"
-import DecodeSection, {
+include "list"
+include "string"
+include "../stream"
+include "map"
+include "./DecodeSection"
+include "./WasmDecoder"
+from DecodeSection use {
   decodeLinkingSection,
   decodeFile,
   decodeImportSection,
   decodeExportSection,
-} from "./DecodeSection"
-import WasmDecoder from "./WasmDecoder"
+}
 // Types
-export record OffsetData {
+provide record OffsetData {
   // Normal Offsets
   mut functionTableOffset: Number,
   // Import Counts
@@ -22,7 +25,7 @@ export record OffsetData {
   funcMap: Map.Map<Number, Number>,
   typeMap: Map.Map<Number, Number>,
 }
-export record FileData {
+provide record FileData {
   // Module Data
   modulePath: String,
   importIdentifier: String,
@@ -41,7 +44,7 @@ export record FileData {
   mut offsetData: OffsetData,
 }
 // Decodes A Wasm File
-export let decodeFile = (modulePath, wasmBinary) => {
+provide let decodeFile = (modulePath, wasmBinary) => {
   // Create Our Stream
   let stream = Stream.fromBytes(wasmBinary)
   // Ensure The File Is Valid
