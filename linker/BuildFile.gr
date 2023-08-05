@@ -4,7 +4,7 @@ module Builder
 include "buffer"
 include "list"
 include "map"
-include "int32"
+include "uint8"
 include "./Stream"
 include "./Decoder/decodeSection"
 include "./Decoder/DecodeFile"
@@ -46,7 +46,7 @@ provide record WasmData {
 }
 // Buffer Manipulation
 let appendBufferByte = (byte, buffer) =>
-  Buffer.addInt8(Int32.fromNumber(byte), buffer)
+  Buffer.addUint8(Uint8.fromNumber(byte), buffer)
 let appendBufferByteList = (byteList, buffer) =>
   List.forEach(byte => appendBufferByte(byte, buffer), byteList)
 let listToBuffer = byteList => {
@@ -909,5 +909,5 @@ provide let buildFile = dependencyChain => {
   // Build The Binary
   let wasmBinary = buildBinary(wasmBinaryContent)
   // Return The File
-  Buffer.toString(wasmBinary)
+  Buffer.toBytes(wasmBinary)
 }

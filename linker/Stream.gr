@@ -6,9 +6,13 @@ include "runtime/numbers"
 include "bytes"
 include "list"
 from Numbers use { coerceNumberToWasmI32 }
+from WasmI32 use { (^) }
 // Helpers
 @unsafe
-let tagSimple = x => WasmI32.xor(WasmI32.shl(x, 1n), 1n)
+let tagSimple = x => {
+  from WasmI32 use { (<<) }
+  x << 1n ^ 1n
+}
 // Library For Interacting With Streams Of Data
 provide record Stream {
   data: Bytes,
@@ -31,9 +35,12 @@ provide let isEmpty = stream => {
 provide let nextByte = stream => {
   // Get The Value
   let ptr = WasmI32.fromGrain(stream.data)
-  let bytesOffset = WasmI32.add(ptr, 8n)
+  let add = (+)
+  from WasmI32 use { (+) }
+  let bytesOffset = ptr + 8n
   let byte = WasmI32.load8U(bytesOffset, coerceNumberToWasmI32(stream.position))
   // Increment The Position
+  from Pervasives use { (+) }
   stream.position += 1
   // Return The Value
   WasmI32.toGrain(tagSimple(byte)): Number

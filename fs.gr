@@ -1,0 +1,275 @@
+module Fs
+
+include "sys/file"
+include "result"
+include "path"
+include "int64"
+include "string"
+include "runtime/wasi"
+
+/**
+ * Potential errors that can be raised from WASI system interactions. Note that
+ * not all of these variants may actually be possible to encounter from this
+ * API but were nevertheless included for full compatibility with WASI error
+ * codes
+ */
+provide enum FileError {
+  PermissionDenied,
+  AddressInUse,
+  AddressNotAvailable,
+  AddressFamilyNotSupported,
+  ResourceUnavailableOrOperationWouldBlock,
+  ConnectionAlreadyInProgress,
+  BadFileDescriptor,
+  BadMessage,
+  DeviceOrResourceBusy,
+  OperationCanceled,
+  NoChildProcesses,
+  ConnectionAborted,
+  ConnectionRefused,
+  ConnectionReset,
+  ResourceDeadlockWouldOccur,
+  DestinationAddressRequired,
+  MathematicsArgumentOutOfDomainOfFunction,
+  FileExists,
+  BadAddress,
+  FileTooLarge,
+  HostIsUnreachable,
+  IdentifierRemoved,
+  IllegalByteSequence,
+  OperationInProgress,
+  InterruptedFunction,
+  InvalidArgument,
+  IOError,
+  SocketIsConnected,
+  IsADirectory,
+  TooManyLevelsOfSymbolicLinks,
+  FileDescriptorValueTooLarge,
+  TooManyLinks,
+  MessageTooLarge,
+  FilenameTooLong,
+  NetworkIsDown,
+  ConnectionAbortedByNetwork,
+  NetworkUnreachable,
+  TooManyFilesOpenInSystem,
+  NoBufferSpaceAvailable,
+  NoSuchDevice,
+  NoSuchFileOrDirectory,
+  ExecutableFileFormatError,
+  NoLocksAvailable,
+  NotEnoughSpace,
+  NoMessageOfTheDesiredType,
+  ProtocolNotAvailable,
+  NoSpaceLeftOnDevice,
+  FunctionNotSupported,
+  TheSocketIsNotConnected,
+  NotADirectoryOrASymbolicLinkToADirectory,
+  DirectoryNotEmpty,
+  StateNotRecoverable,
+  NotASocket,
+  NotSupportedOrOperationNotSupportedOnSocket,
+  InappropriateIOControlOperation,
+  NoSuchDeviceOrAddress,
+  ValueTooLargeToBeStoredInDataType,
+  PreviousOwnerDied,
+  OperationNotPermitted,
+  BrokenPipe,
+  ProtocolError,
+  ProtocolNotSupported,
+  ProtocolWrongTypeForSocket,
+  ResultTooLarge,
+  ReadOnlyFileSystem,
+  InvalidSeek,
+  NoSuchProcess,
+  ConnectionTimedOut,
+  TextFileBusy,
+  CrossDeviceLink,
+  ExtensionCapabilitiesInsufficient,
+}
+
+let errnoToFileError = errno => {
+  match (errno) {
+    2 => PermissionDenied,
+    3 => AddressInUse,
+    4 => AddressNotAvailable,
+    5 => AddressFamilyNotSupported,
+    6 => ResourceUnavailableOrOperationWouldBlock,
+    7 => ConnectionAlreadyInProgress,
+    8 => BadFileDescriptor,
+    9 => BadMessage,
+    10 => DeviceOrResourceBusy,
+    11 => OperationCanceled,
+    12 => NoChildProcesses,
+    13 => ConnectionAborted,
+    14 => ConnectionRefused,
+    15 => ConnectionReset,
+    16 => ResourceDeadlockWouldOccur,
+    17 => DestinationAddressRequired,
+    18 => MathematicsArgumentOutOfDomainOfFunction,
+    20 => FileExists,
+    21 => BadAddress,
+    22 => FileTooLarge,
+    23 => HostIsUnreachable,
+    24 => IdentifierRemoved,
+    25 => IllegalByteSequence,
+    26 => OperationInProgress,
+    27 => InterruptedFunction,
+    28 => InvalidArgument,
+    29 => IOError,
+    30 => SocketIsConnected,
+    31 => IsADirectory,
+    32 => TooManyLevelsOfSymbolicLinks,
+    33 => FileDescriptorValueTooLarge,
+    34 => TooManyLinks,
+    35 => MessageTooLarge,
+    37 => FilenameTooLong,
+    38 => NetworkIsDown,
+    39 => ConnectionAbortedByNetwork,
+    40 => NetworkUnreachable,
+    41 => TooManyFilesOpenInSystem,
+    42 => NoBufferSpaceAvailable,
+    43 => NoSuchDevice,
+    44 => NoSuchFileOrDirectory,
+    45 => ExecutableFileFormatError,
+    46 => NoLocksAvailable,
+    48 => NotEnoughSpace,
+    49 => NoMessageOfTheDesiredType,
+    50 => ProtocolNotAvailable,
+    51 => NoSpaceLeftOnDevice,
+    52 => FunctionNotSupported,
+    53 => TheSocketIsNotConnected,
+    54 => NotADirectoryOrASymbolicLinkToADirectory,
+    55 => DirectoryNotEmpty,
+    56 => StateNotRecoverable,
+    57 => NotASocket,
+    58 => NotSupportedOrOperationNotSupportedOnSocket,
+    59 => InappropriateIOControlOperation,
+    60 => NoSuchDeviceOrAddress,
+    61 => ValueTooLargeToBeStoredInDataType,
+    62 => PreviousOwnerDied,
+    63 => OperationNotPermitted,
+    64 => BrokenPipe,
+    65 => ProtocolError,
+    66 => ProtocolNotSupported,
+    67 => ProtocolWrongTypeForSocket,
+    68 => ResultTooLarge,
+    69 => ReadOnlyFileSystem,
+    70 => InvalidSeek,
+    71 => NoSuchProcess,
+    73 => ConnectionTimedOut,
+    74 => TextFileBusy,
+    75 => CrossDeviceLink,
+    76 => ExtensionCapabilitiesInsufficient,
+    _ => fail "",
+  }
+}
+
+/**
+ * Read the contents of a file.
+ *
+ * @param path: The file path to read from
+ * @returns `Ok(contents)` containing the bytes read if successful or `Err(err)` otherwise
+ *
+ * @since v0.6.0
+ */
+provide let readFile = path => {
+  let fd = File.open(
+    Path.toString(path),
+    [File.Exclusive],
+    [File.FdRead, File.FdFilestats],
+    [File.FdRead],
+    []
+  )
+  match (fd) {
+    Ok(fd) => {
+      let stats = match (File.fdFilestats(fd)) {
+        Ok(stats) => stats,
+        Err(Wasi.SystemError(err)) => return Err(errnoToFileError(err)),
+        _ => fail "Impossible: non-wasi error",
+      }
+      let contents = match (File.fdRead(fd, Int64.toNumber(stats.size))) {
+        Ok((contents, _)) => contents,
+        Err(Wasi.SystemError(err)) => return Err(errnoToFileError(err)),
+        _ => fail "Impossible: non-wasi error",
+      }
+      return Ok(contents)
+    },
+    Err(Wasi.SystemError(err)) => return Err(errnoToFileError(err)),
+    _ => fail "Impossible: non-wasi error",
+  }
+}
+
+/**
+ * Write contents to a file.
+ *
+ * @param path: The file path to write to
+ * @param data: The bytes to write to the file
+ * @returns `Ok(numBytes)` containing the number of bytes written if successful or `Err(err)` otherwise
+ *
+ * @since v0.6.0
+ */
+provide let writeFile = (path, data) => {
+  let fd = File.open(
+    Path.toString(path),
+    [File.Exclusive],
+    [File.FdWrite],
+    [File.FdWrite],
+    []
+  )
+  match (fd) {
+    Ok(fd) => {
+      let bytesWritten = match (File.fdWrite(fd, data)) {
+        Ok(bytesWritten) => bytesWritten,
+        Err(Wasi.SystemError(err)) => return Err(errnoToFileError(err)),
+        _ => fail "Impossible: non-wasi error",
+      }
+      return Ok(bytesWritten)
+    },
+    Err(Wasi.SystemError(err)) => return Err(errnoToFileError(err)),
+    _ => fail "Impossible: non-wasi error",
+  }
+}
+
+provide let appendFile = (path, data) => {
+  let fd = File.open(
+    Path.toString(path),
+    [File.Exclusive],
+    [File.FdWrite, File.FdFilestats],
+    [File.FdWrite],
+    []
+  )
+  match (fd) {
+    Ok(fd) => {
+      let stats = match (File.fdFilestats(fd)) {
+        Ok(stats) => stats,
+        Err(Wasi.SystemError(err)) => return Err(errnoToFileError(err)),
+        _ => fail "Impossible: non-wasi error",
+      }
+      let bytesWritten = match (File.fdPwrite(fd, data, stats.size)) {
+        Ok(bytesWritten) => bytesWritten,
+        Err(Wasi.SystemError(err)) => return Err(errnoToFileError(err)),
+        _ => fail "Impossible: non-wasi error",
+      }
+      return Ok(bytesWritten)
+    },
+    Err(Wasi.SystemError(err)) => return Err(errnoToFileError(err)),
+    _ => fail "Impossible: non-wasi error",
+  }
+}
+
+provide module Utf8 {
+  provide let readFile = path => {
+    let bytes = readFile(path)
+    Result.map(bytes => String.decode(bytes, String.UTF8), bytes)
+  }
+
+  provide let writeFile = (path, data) => {
+    let bytes = String.encode(data, String.UTF8)
+    writeFile(path, bytes)
+  }
+
+  provide let appendFile = (path, data) => {
+    let bytes = String.encode(data, String.UTF8)
+    appendFile(path, bytes)
+  }
+}

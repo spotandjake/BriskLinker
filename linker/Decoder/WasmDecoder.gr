@@ -4,7 +4,7 @@ module WasmDecoder
 include "list"
 include "../stream"
 // Types
-provide enum WasmType {
+provide enum rec WasmType {
   WasmI32,
   WasmI64,
   WasmF32,

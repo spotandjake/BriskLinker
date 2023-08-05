@@ -85,7 +85,7 @@ provide let decodeFile = (modulePath, wasmBinary) => {
         importData.importModule,
         String.slice(
           String.length(linkingInfo.importIdentifier),
-          String.length(importData.importModule),
+          end=String.length(importData.importModule),
           importData.importModule
         ),
       )

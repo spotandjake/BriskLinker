@@ -6,8 +6,10 @@ include "sys/file"
 include "sys/process"
 include "int64"
 include "string"
+include "path"
 include "./linker/ResolvePath"
 include "./linker/index"
+include "./fs"
 from ResolvePath use { resolvePath }
 from Linker use { link }
 
@@ -17,58 +19,16 @@ record Arguments {
 }
 // Definition For Write File
 let writeFile = (filePath, fileContents) => {
-  // TODO: if the file already exists this does not work
-  // Open The File
-  let fd = File.pathOpen(
-    File.pwdfd,
-    [File.SymlinkFollow],
-    filePath,
-    [File.Create],
-    [File.FdWrite],
-    [File.FdWrite],
-    []
-  )
-  // Read The File Contents
-  match (fd) {
-    Ok(descriptor) => {
-      // Write The File Contents
-      let writeSuccess = File.fdWrite(
-        descriptor,
-        Bytes.fromString(fileContents)
-      )
-      match (writeSuccess) {
-        Ok(_) => void,
-        Err(_) => fail "[Error Writing File: " ++ filePath ++ "]",
-      }
-    },
-    Err(_) => fail "[Error: " ++ filePath ++ "]",
+  match (Fs.writeFile(Path.fromString(filePath), fileContents)) {
+    Err(err) => fail toString(err),
+    Ok(_) => void,
   }
 }
 // Definition For ReadFile
 let readFile = filePath => {
-  // Open The File
-  let fd = File.pathOpen(
-    File.pwdfd,
-    [File.SymlinkFollow],
-    filePath,
-    [File.Exclusive],
-    [File.FdRead, File.FdFilestats],
-    [File.FdRead],
-    []
-  )
-  // Read The File Contents
-  match (fd) {
-    Ok(descriptor) => {
-      match (File.fdFilestats(descriptor)) {
-        Ok(stats) =>
-          match (File.fdRead(descriptor, Int64.toNumber(stats.size))) {
-            Ok((contents, _)) => Ok(contents),
-            Err(err) => throw err,
-          },
-        Err(err) => throw err,
-      }
-    },
-    Err(_) => Err("[Error: " ++ filePath ++ "]"),
+  match (Fs.readFile(Path.fromString(filePath))) {
+    Err(err) => Err(toString(err)),
+    Ok(fileContents) => Ok(fileContents),
   }
 }
 // Perform Linking
@@ -91,6 +51,8 @@ let (input, output) = match (Process.argv()) {
     (input, output),
   Ok([> file, input, output]) when !String.endsWith("node", file) =>
     (input, output),
+  Ok([> file, input]) when !String.endsWith("node", file) =>
+    fail "Output file was not provided",
   Err(err) => throw err,
   _ => fail "Input/Output file was not provided",
 }
