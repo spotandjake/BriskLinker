@@ -11,10 +11,11 @@ done
 clear
 bash ./clean.sh
 rm ./LinkerTest/Linker_Linked.br.wasm
+touch ./LinkerTest/Linker_Linked.br.wasm
 if [ "$optimize" == "true" ]; then
-  grain index.gr --release "./LinkerTest/index.br.wasm" "./LinkerTest/Linker_Linked.br.wasm"
+  grain index.gr --release --dir . -- "./LinkerTest/index.br.wasm" "./LinkerTest/Linker_Linked.br.wasm"
 else
-  grain index.gr "./LinkerTest/index.br.wasm" "./LinkerTest/Linker_Linked.br.wasm"
+  grain index.gr --dir . -- "./LinkerTest/index.br.wasm" "./LinkerTest/Linker_Linked.br.wasm"
 fi
 if [ "$detail" == "true" ]; then
   if [ "$check" == "true" ]; then

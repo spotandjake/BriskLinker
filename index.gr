@@ -41,14 +41,6 @@ let linkBuild = (filePath, outputPath) => {
 // Deal With Command Line Arguments
 // TODO: Replace with argument parser library
 let (input, output) = match (Process.argv()) {
-  Ok([> node, grain, _, input, output]) when (
-    String.endsWith("node", node) && String.endsWith("grain", grain)
-  ) =>
-    (input, output),
-  Ok([> node, grain, _, "--release", input, output]) when (
-    String.endsWith("node", node) && String.endsWith("grain", grain)
-  ) =>
-    (input, output),
   Ok([> file, input, output]) when !String.endsWith("node", file) =>
     (input, output),
   Ok([> file, input]) when !String.endsWith("node", file) =>
